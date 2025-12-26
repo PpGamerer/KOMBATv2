@@ -1,0 +1,22 @@
+energy = budget - 50
+step = 0
+while (2 - step) {
+  if (energy - 80) then {} else done
+  enemy = opponent
+  if (enemy / 10 - 1) then {
+    if (enemy % 10 - 5) then move upleft
+    else if (enemy % 10 - 4) then move downleft
+    else if (enemy % 10 - 3) then move down
+    else if (enemy % 10 - 2) then move downright
+    else if (enemy % 10 - 1) then move upright
+    else move up
+  } else if (enemy) then {
+    power = 4 ^ (nearby down % 50 + 1)
+    if (power - 60) then power = 60 else power = power
+    if (budget - power) then shoot down power else done
+  } else {
+    turn = random % 2
+    if (turn) then move upright else move downleft
+  }
+  step = step + 1
+}

@@ -1,0 +1,22 @@
+{
+  "devDependencies": {
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.16",
+    "react-hexgrid": "^2.0.1",
+    "react-router-dom": "^7.1.5"
+  },
+  "name": "kombat",
+  "version": "1.0.0",
+  "description": "OOP's Project\r # ข้อตกลง 📋\r 📎 https://o365cmu-my.sharepoint.com/:w:/g/personal/pimolnat_ka_cmu_ac_th/EYLtupT9YIZKsrhwD9mc6m8BRuOT8CadN30VdCDQge0s5w?e=qA4nzi\r # สมาชิก 👩‍💻\r 👑 นางสาวณัฐชยา ปาลี 660610754  \r 👑 นางสาวณัชชา คำปวง 660610751  \r 👑 นางสาวพิมลนาฏ แก้วบุตร 660610779\r # Design\r 📎 https://o365cmu-my.sharepoint.com/:w:/g/personal/pimolnat_ka_cmu_ac_th/ETr-5Jv37U5HhZ6KrSWOkcABlPVeRWuHcpwzcThYiWlPlg",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

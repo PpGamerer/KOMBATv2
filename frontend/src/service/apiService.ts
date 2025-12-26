@@ -113,12 +113,19 @@ export async function spawnMinion(
     row: number,
     col: number,
     minionTypeIndex: number,
-    isFree: boolean
+    isFreeSpawn: boolean
 ): Promise<GameState> {
+    console.log('📤 Sending spawn request:', { row, col, minionTypeIndex, isFree: isFreeSpawn });
+
     const response = await fetch(`${API_BASE_URL}/spawn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row, col, minionTypeIndex, isFree })
+        body: JSON.stringify({
+            row,
+            col,
+            minionTypeIndex,
+            isFree: isFreeSpawn
+        })
     });
 
     const result = await handleResponse<ApiResponse<GameState>>(response);

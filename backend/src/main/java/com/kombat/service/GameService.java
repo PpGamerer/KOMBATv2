@@ -28,10 +28,11 @@ public class GameService {
     private GameState gameState;
     private List<String> gameLog;
     private HexGrid board;
+    private boolean freeSpawnPhase = false;
+    private int freeSpawnsCompleted = 0;
 
     public GameService() {
         this.gameLog = new ArrayList<>();
-        // สร้าง Board รอไว้เลย
         this.board = HexGrid.getInstance();
     }
 
@@ -43,26 +44,42 @@ public class GameService {
     }
 
     public GameInitResponse initializeGame(GameInitRequest request) {
+        // ✅ FULL RESET - Reset ทุกอย่างก่อนเริ่มเกมใหม่
+        System.out.println("🔄 Resetting all game state...");
+
+        // Reset GameState singleton
+        GameState.reset();
+
+        // Reset HexGrid singleton
+        HexGrid.resetInstance();
+        board = HexGrid.getInstance();
+
+        // Reset GameSetup
+        GameSetup.minionTypes.clear();
+
+        // สร้าง gameState ใหม่
+        gameState = GameState.getInstance(board);
         gameLog.clear();
 
-        // 1. Load configuration (แก้ Path ให้หาเจอง่ายขึ้น)
-        // ถ้าวางไฟล์ไว้หน้าสุดของโปรเจกต์ (ระดับเดียวกับ pom.xml) ให้ใช้แค่ "config.txt"
+        // Reset free spawn tracking
+        freeSpawnPhase = request.isWithFreeSpawn();
+        freeSpawnsCompleted = 0;
+
+        System.out.println("✅ Reset complete!");
+
+        // 1. Load configuration
         ConfigLoader.loadConfig("config.txt");
 
         // 2. Determine Game Mode
         GameMode mode;
         try {
             mode = GameMode.valueOf(request.getGameMode().toUpperCase());
+            System.out.println("🎮 Game Mode: " + mode);
         } catch (IllegalArgumentException e) {
             return new GameInitResponse(false, "Invalid game mode: " + request.getGameMode(), null);
         }
 
-        // 3. ✅ สร้าง GameState และ Board *ก่อน* สร้าง Player
-        // เพื่อให้ GameState.getBoard() ไม่เป็น null เมื่อ Player เรียกใช้
-        board = HexGrid.getInstance(); // รีเซ็ตกระดาน
-        gameState = GameState.getInstance(board); // ตั้งค่า GameState.board
-
-        // 4. Setup Players based on mode
+        // 3. Setup Players based on mode
         List<Player> players = new ArrayList<>();
         Player player1, player2;
 
@@ -83,24 +100,25 @@ public class GameService {
                 return new GameInitResponse(false, "Unsupported game mode", null);
         }
 
-        // 5. Update Legacy Static Players
+        // 4. Update GameState Players
         GameState.players.clear();
         GameState.players.add(player1);
         GameState.players.add(player2);
         GameState.currentPlayer = player1;
 
-        // 6. ✅ เรียก initilizeHex *หลังจาก* GameState มี board แล้ว
-        player1.initilizeHex();
-        player2.initilizeHex();
+        // 5. ✅ Initialize starting hexes based on game mode
+        initializeStartingHexes(player1, player2, mode);
 
-        // 7. Configure Minions
+        // 6. Configure Minions
         GameSetup.minionTypes.clear();
         List<MinionType> minionTypes = configureMinionTypes(request.getMinionConfigs());
         GameSetup.minionTypes.addAll(minionTypes);
 
-        // 8. Handle free spawn phase
+        System.out.println("✅ Configured " + minionTypes.size() + " minion types");
+
+        // 7. Handle free spawn phase
         if (request.isWithFreeSpawn()) {
-            handleFreeSpawnPhase();
+            addLog("🎮 Free spawn phase started - Both players can spawn 1 free minion");
         }
 
         addLog("Game initialized successfully in " + mode + " mode");
@@ -108,12 +126,47 @@ public class GameService {
         return new GameInitResponse(true, "Game started", getGameStateDTO());
     }
 
-    private void handleFreeSpawnPhase() {
-        for (Player player : GameState.players) {
-            if (player instanceof Bot) {
-                ((Bot) player).spawnRandomMinion(true);
-            }
-        }
+    // ✅ Helper method to initialize starting hexes
+    private void initializeStartingHexes(Player player1, Player player2, GameMode mode) {
+        System.out.println("🏠 Initializing starting hexes for " + mode + " mode");
+        System.out.println("   Player 1: " + player1.getName() + " (type: " + player1.getClass().getSimpleName() + ")");
+        System.out.println("   Player 2: " + player2.getName() + " (type: " + player2.getClass().getSimpleName() + ")");
+
+        // Player 1 starting hexes (top-left corner)
+        // Row 0: (0,0), (0,1), (0,2)
+        // Row 1: (1,0), (1,1)
+        HexTile hex00 = board.getTile(0, 0);
+        HexTile hex01 = board.getTile(0, 1);
+        HexTile hex02 = board.getTile(0, 2);
+        HexTile hex10 = board.getTile(1, 0);
+        HexTile hex11 = board.getTile(1, 1);
+
+        if (hex00 != null) player1.purchaseHex(hex00);
+        if (hex01 != null) player1.purchaseHex(hex01);
+        if (hex02 != null) player1.purchaseHex(hex02);
+        if (hex10 != null) player1.purchaseHex(hex10);
+        if (hex11 != null) player1.purchaseHex(hex11);
+
+        System.out.println("   ✅ Player 1 purchased " + player1.getOwnedHexes().size() + " hexes");
+
+        // Player 2 starting hexes (bottom-right corner)
+        // Row 7: (7,5), (7,6), (7,7)
+        // Row 6: (6,6), (6,7)
+        HexTile hex75 = board.getTile(7, 5);
+        HexTile hex76 = board.getTile(7, 6);
+        HexTile hex77 = board.getTile(7, 7);
+        HexTile hex66 = board.getTile(6, 6);
+        HexTile hex67 = board.getTile(6, 7);
+
+        if (hex75 != null) player2.purchaseHex(hex75);
+        if (hex76 != null) player2.purchaseHex(hex76);
+        if (hex77 != null) player2.purchaseHex(hex77);
+        if (hex66 != null) player2.purchaseHex(hex66);
+        if (hex67 != null) player2.purchaseHex(hex67);
+
+        System.out.println("   ✅ Player 2 purchased " + player2.getOwnedHexes().size() + " hexes");
+        System.out.println("   💰 Player 1 budget after purchase: " + player1.getBudget());
+        System.out.println("   💰 Player 2 budget after purchase: " + player2.getBudget());
     }
 
     public CommandResponse executeCommand(CommandRequest request) {
@@ -129,6 +182,12 @@ public class GameService {
             if (type == CommandType.BUY_HEX) {
                 return handleBuyHex(currentPlayer, request.getRow(), request.getCol());
             } else if (type == CommandType.SPAWN_MINION) {
+                // ✅ Debug logging
+                System.out.println("🎯 SPAWN_MINION command - Player: " + currentPlayer.getName());
+                System.out.println("🎯 isFreeSpawn: " + request.isFreeSpawn());
+                System.out.println("🎯 freeSpawnPhase: " + freeSpawnPhase);
+                System.out.println("🎯 freeSpawnsCompleted: " + freeSpawnsCompleted);
+
                 return handleSpawnMinion(currentPlayer, request.getMinionTypeIndex(),
                         request.getRow(), request.getCol(), request.isFreeSpawn());
             } else {
@@ -149,8 +208,10 @@ public class GameService {
 
         Player currentPlayer = GameState.currentPlayer;
 
-        // 1. Execute Strategies
-        executeMinionStrategies(currentPlayer);
+        // 1. Execute Strategies (only if not in free spawn phase)
+        if (!freeSpawnPhase) {
+            executeMinionStrategies(currentPlayer);
+        }
 
         // 2. Check Game Over
         boolean gameOver = gameState.isGameOver();
@@ -167,15 +228,23 @@ public class GameService {
         int nextIndex = (currentIndex + 1) % players.size();
         GameState.currentPlayer = players.get(nextIndex);
 
-        // 4. Start Turn (Add Budget/Interest)
-        GameState.currentPlayer.startTurn();
+        // 4. ✅ Increment turn counter when returning to Player 1 (เพิ่มทีเดียวเท่านั้น!)
+        if (nextIndex == 0 && !freeSpawnPhase) {
+            GameState.turnCounter++;  // ✅ เพิ่มแค่ตัวเดียว
+            System.out.println("🔄 Turn incremented to: " + GameState.turnCounter);
+        }
 
-        // 5. Handle Bot Turn
+        // 5. Start Turn (Add Budget/Interest) - only if not in free spawn phase
+        if (!freeSpawnPhase) {
+            GameState.currentPlayer.startTurn();
+        }
+
+        // 6. Handle Bot Turn
         if (GameState.currentPlayer instanceof Bot) {
             handleBotTurn((Bot) GameState.currentPlayer);
         }
 
-        addLog("Turn " + gameState.getTurnCounter() + " - " + GameState.currentPlayer.getName());
+        addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
         return new TurnResponse(true, "Turn ended", getGameStateDTO(), false);
     }
 
@@ -200,6 +269,8 @@ public class GameService {
     }
 
     private CommandResponse handleSpawnMinion(Player player, int minionTypeIndex, int row, int col, boolean isFreeSpawn) {
+        System.out.println("🔍 handleSpawnMinion called - Player: " + player.getName() + ", isFreeSpawn: " + isFreeSpawn + ", freeSpawnPhase: " + freeSpawnPhase);
+
         if (minionTypeIndex < 0 || minionTypeIndex >= GameSetup.minionTypes.size()) {
             return new CommandResponse(false, "Invalid minion type index", getGameStateDTO());
         }
@@ -210,15 +281,55 @@ public class GameService {
         }
 
         MinionType type = GameSetup.minionTypes.get(minionTypeIndex);
-        Minion spawned = player.spawnMinion(targetHex, type, isFreeSpawn);
 
-        if (spawned != null) {
-            addLog(player.getName() + " spawned " + type.getCustomName() +
-                    " at (" + (row + 1) + "," + (col + 1) + ")" + (isFreeSpawn ? " (free)" : ""));
-            return new CommandResponse(true, "Minion spawned successfully", getGameStateDTO());
+        // ✅ For free spawn, bypass normal spawn restrictions
+        Minion spawned;
+        if (isFreeSpawn && freeSpawnPhase) {
+            System.out.println("✅ Entering free spawn logic");
+            spawned = player.spawnMinion(targetHex, type, true);
+
+            if (spawned != null) {
+                System.out.println("✅ Minion spawned successfully!");
+                freeSpawnsCompleted++;
+                addLog(player.getName() + " spawned " + type.getCustomName() +
+                        " at (" + (row + 1) + "," + (col + 1) + ") (free spawn " + freeSpawnsCompleted + "/2)");
+
+                // ✅ Switch to next player after free spawn
+                List<Player> players = GameState.players;
+                int currentIndex = players.indexOf(player);
+                int nextIndex = (currentIndex + 1) % players.size();
+                Player nextPlayer = players.get(nextIndex);
+                GameState.currentPlayer = nextPlayer;
+
+                System.out.println("🔄 Switched from " + player.getName() + " to " + nextPlayer.getName());
+                addLog("🔄 Switched to " + nextPlayer.getName() + " for free spawn");
+
+                // ✅ If both players have spawned, end free spawn phase
+                if (freeSpawnsCompleted >= 2) {
+                    freeSpawnPhase = false;
+                    GameState.currentPlayer = players.get(0); // Reset to Player 1
+                    GameState.currentPlayer.startTurn(); // Start first real turn
+                    System.out.println("✅ Free spawn phase completed!");
+                    addLog("✅ Free spawn phase completed! Starting turn 1");
+                }
+
+                return new CommandResponse(true, "Free minion spawned successfully", getGameStateDTO());
+            } else {
+                System.out.println("❌ Spawn failed - player.spawnMinion returned null");
+                return new CommandResponse(false, "Failed to spawn minion on target hex", getGameStateDTO());
+            }
         } else {
-            return new CommandResponse(false, "Failed to spawn (Budget/Cooldown/Occupied)", getGameStateDTO());
+            System.out.println("⚠️ Not in free spawn mode - isFreeSpawn: " + isFreeSpawn + ", freeSpawnPhase: " + freeSpawnPhase);
+            spawned = player.spawnMinion(targetHex, type, false);
+
+            if (spawned != null) {
+                addLog(player.getName() + " spawned " + type.getCustomName() +
+                        " at (" + (row + 1) + "," + (col + 1) + ")");
+                return new CommandResponse(true, "Minion spawned successfully", getGameStateDTO());
+            }
         }
+
+        return new CommandResponse(false, "Failed to spawn (Budget/Cooldown/Occupied/Not your hex)", getGameStateDTO());
     }
 
     private void executeMinionStrategies(Player player) {
@@ -227,6 +338,19 @@ public class GameService {
 
     private void handleBotTurn(Bot bot) {
         addLog(bot.getName() + " (Bot) is taking turn...");
+
+        if (freeSpawnPhase) {
+            bot.spawnRandomMinion(true);
+            freeSpawnsCompleted++;
+
+            if (freeSpawnsCompleted >= 2) {
+                freeSpawnPhase = false;
+                GameState.currentPlayer = GameState.players.get(0);
+                GameState.currentPlayer.startTurn();
+                addLog("✅ Free spawn phase completed! Starting turn 1");
+            }
+            return;
+        }
 
         if (bot.getBudget() >= ConfigLoader.get("hex_purchase_cost")) {
             bot.purchaseRandomHex();
@@ -247,7 +371,6 @@ public class GameService {
             // Load strategy
             List<Statement> strategy = loadStrategyFromFile(config.getStrategyFile());
             if (strategy == null) {
-                // Try parsing raw code if file not found
                 strategy = parseStrategyCode(config.getStrategyCode() != null ? config.getStrategyCode() : "");
             }
 

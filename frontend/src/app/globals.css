@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Sigmar&display=swap" rel="stylesheet');
+@import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+@keyframes slow-pan {
+  0% {
+    background-position: 50% 50%;
+  }
+  50% {
+    background-position: 55% 55%;
+  }
+  100% {
+    background-position: 50% 50%;
+  }
+}
+
+.animate-slow-pan {
+  animation: slow-pan 10s infinite alternate;
+}
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float 3s infinite ease-in-out;
+}
+.minion-selection-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+button {
+  padding: 10px;
+  color: white;
+  background-color: #1d4ed8;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
+}
+  .hexagon {
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  }
+  .exit-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .button {
+    background-color: rgb(255, 208, 0);
+    padding: 7px 20px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition-duration: 0.4s;
+    border-radius: 10px;
+  }
+  .button-hex {
+    background-color: rgb(95, 186, 209);
+    border: 3px solid white;
+    color: white;
+  }
+  .button-minion {
+    background-color: rgb(108, 205, 229);
+    border: 3px solid white;
+    color: white;
+  }
+  .button:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 3px solid white;
+    color: white;
+  }
+  @keyframes bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  @keyframes float {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+    100% { transform: translateY(0); }
+  }
+  
+  .animate-bounce-slow {
+    animation: bounce-slow 4s infinite;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  
+  
+

@@ -1,0 +1,24 @@
+energy = budget - 70
+loop = 0
+while (2 - loop) {
+  if (energy - 100) then {} else done
+  enemy = opponent
+  if (enemy / 10 - 1) then {
+    if (enemy % 10 - 5) then move upleft
+    else if (enemy % 10 - 4) then move downleft
+    else if (enemy % 10 - 3) then move down
+    else if (enemy % 10 - 2) then move downright
+    else if (enemy % 10 - 1) then move upright
+    else move up
+  } else if (enemy) then {
+    power = 6 ^ (nearby up % 35 + 1)
+    if (power - 65) then power = 65 else power = power
+    if (budget - power) then shoot up power else done
+  } else {
+    randomDir = random % 3
+    if (randomDir - 2) then move down
+    else if (randomDir - 1) then move upleft
+    else move upright
+  }
+  loop = loop + 1
+}

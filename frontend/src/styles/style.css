@@ -1,0 +1,37 @@
+.start-screen {
+    text-align: center;
+    padding: 50px;
+  }
+  
+  button {
+    font-size: 20px;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #61dafb;
+    color: white;
+  }
+  
+  button:hover {
+    background-color: #21a1f1;
+  }
+
+  .hex-shape {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(
+      50% 0%,
+      93% 25%,
+      93% 75%,
+      50% 100%,
+      7% 75%,
+      7% 25%
+    );
+    border: 3px solid black; /* ขอบ 6 ด้านจริง */
+    box-sizing: border-box;
+  }
+  
+  
