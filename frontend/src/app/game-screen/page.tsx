@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import StartScreen from "@/components/StartScreen";
-import SelectedMinionsPage from "@/app/selected-minions/page";
 import { MinionType, HexTile } from "@/components/types";
 import { PURCHASABLE_COLOR, PLAYER1_COLOR, PLAYER2_COLOR, initialHexes } from "@/components/constants";
 import { useFetchConfig } from "@/hook/useFetchConfig";
@@ -35,6 +34,8 @@ export default function PlaceMinion() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [budgets, setBudgets] = useState({player1: initBudget, player2: initBudget});
   const [gameInitialized, setGameInitialized] = useState(false);
+  const [isBotPlaying, setIsBotPlaying] = useState(false);
+  const [isPlayer2Bot, setIsPlayer2Bot] = useState(false);
 
   const clearGameData = () => {
     sessionStorage.removeItem('selectedMinions');
@@ -45,7 +46,6 @@ export default function PlaceMinion() {
 
   useEffect(() => {
     const storedMinions = sessionStorage.getItem("selectedMinions");
-
     if (storedMinions) {
       const minions = JSON.parse(storedMinions);
       setSelectedMinions(minions);
@@ -60,6 +60,43 @@ export default function PlaceMinion() {
       initializeGame(selectedMinions);
     }
   }, [selectedMinions, gameInitialized]);
+
+  // ✅ Check and trigger bot turn
+  useEffect(() => {
+    if (!gameInitialized || isBotPlaying || !isPlayer2Bot) return;
+
+    const checkAndTriggerBot = async () => {
+      try {
+        const gameState = await API.fetchGameState();
+        if (!gameState) return;
+
+        const currentPlayerName = gameState.currentPlayerName;
+
+        console.log("🤖 Check bot trigger:", {
+          currentPlayerName,
+          currentPlayer,
+          isPlayer2Bot,
+          isBotPlaying,
+          isFreeDrop
+        });
+
+        // ✅ Trigger bot only when it's Player 2's turn
+        if (currentPlayerName?.includes("2") && !isBotPlaying) {
+          console.log("✅ Triggering bot turn");
+          setIsBotPlaying(true);
+
+          setTimeout(async () => {
+            await handleBotTurn();
+            setIsBotPlaying(false);
+          }, 2000);
+        }
+      } catch (error) {
+        console.error("❌ Error checking bot trigger:", error);
+      }
+    };
+
+    checkAndTriggerBot();
+  }, [currentPlayer, gameInitialized, isBotPlaying, isPlayer2Bot]);
 
   const initializeGame = async (minions: MinionType[]) => {
     try {
@@ -91,6 +128,15 @@ export default function PlaceMinion() {
       const gameState = await API.initGame(payload);
       console.log("✅ Game initialized, state:", gameState);
 
+      // Check if Player 2 is a bot
+      const player2Data = gameState.players?.[1];
+      const player2IsBot = player2Data?.isBot ||
+          player2Data?.name?.includes("Bot") ||
+          player2Data?.shortName?.includes("B");
+
+      setIsPlayer2Bot(player2IsBot);
+      console.log("🤖 Player 2 is Bot:", player2IsBot);
+
       updateGameStateFromBackend(gameState);
       setGameInitialized(true);
     } catch (error) {
@@ -102,11 +148,15 @@ export default function PlaceMinion() {
   const updateGameStateFromBackend = (gameState: any) => {
     if (!gameState) return;
 
+    console.log("📥 Updating game state from backend:", gameState);
+
     setTurnCounter(gameState.turnCounter || 1);
 
     const currentPlayerName = gameState.currentPlayerName;
     if (currentPlayerName) {
-      setCurrentPlayer(currentPlayerName.includes("1") ? 1 : 2);
+      const playerNum = currentPlayerName.includes("1") ? 1 : 2;
+      setCurrentPlayer(playerNum);
+      console.log("👤 Current player set to:", playerNum);
     }
 
     if (gameState.players && gameState.players.length >= 2) {
@@ -114,17 +164,6 @@ export default function PlaceMinion() {
         player1: gameState.players[0].budget || 0,
         player2: gameState.players[1].budget || 0
       });
-
-      // ✅ เช็คว่า Player 2 เป็น Bot หรือไม่
-      const player2IsBot = gameState.players[1]?.isBot || false;
-
-      // ✅ ถ้าเป็น turn ของ Bot และไม่อยู่ใน free spawn phase
-      if (player2IsBot && currentPlayerName.includes("2") && !isFreeDrop && isFreeDropCompleted) {
-        console.log("🤖 Bot's turn detected - will auto play");
-        setTimeout(() => {
-          handleBotTurn();
-        }, 2000);
-      }
     }
 
     if (gameState.board) {
@@ -132,10 +171,10 @@ export default function PlaceMinion() {
         let color = "rgb(249, 247, 228)";
         let player = null;
 
-        if (tile.ownerName === "P1") {
+        if (tile.ownerName === "P1" || tile.ownerName === "B1") {
           color = PLAYER1_COLOR;
           player = 1;
-        } else if (tile.ownerName === "P2") {
+        } else if (tile.ownerName === "P2" || tile.ownerName === "B2") {
           color = PLAYER2_COLOR;
           player = 2;
         }
@@ -162,11 +201,6 @@ export default function PlaceMinion() {
     return minion?.image || "/bearr.png";
   };
 
-  // ❌ ลบ useEffect ที่ hardcode hex สีเริ่มต้น
-  // useEffect(() => {
-  //   setHexes((prevHexes) => ...);
-  // }, []);
-
   useEffect(() => {
     const updateSize = () => {
       const screenWidth = window.innerWidth * 0.8;
@@ -180,14 +214,20 @@ export default function PlaceMinion() {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
+  // Show free drop message only for human players
   useEffect(() => {
     if (!showStartScreen && isFreeDrop && gameInitialized) {
+      // Don't show message if current player is Bot
+      if (currentPlayer === 2 && isPlayer2Bot) {
+        return;
+      }
+
       const timer = setTimeout(() => {
         setMessage(`Player ${currentPlayer}: ลงฟรีได้ 1 มินเนียน \nกรุณาเลือกมินเนียนที่ต้องการลง`);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [showStartScreen, isFreeDrop, currentPlayer, gameInitialized]);
+  }, [showStartScreen, isFreeDrop, currentPlayer, gameInitialized, isPlayer2Bot]);
 
   const highlightPurchasableHexes = (player: number) => {
     setHexes((prevHexes) =>
@@ -211,21 +251,13 @@ export default function PlaceMinion() {
     const gridRow = (hex.row * 2) + (hex.col % 2 === 0 ? 2 : 1);
 
     const evenRowOffsets = [
-      {row: -1, col: 0},
-      {row: 0, col: 1},
-      {row: 1, col: 1},
-      {row: 1, col: 0},
-      {row: 1, col: -1},
-      {row: 0, col: -1},
+      {row: -1, col: 0}, {row: 0, col: 1}, {row: 1, col: 1},
+      {row: 1, col: 0}, {row: 1, col: -1}, {row: 0, col: -1},
     ];
 
     const oddRowOffsets = [
-      {row: -1, col: 0},
-      {row: -1, col: 1},
-      {row: 0, col: 1},
-      {row: 1, col: 0},
-      {row: 0, col: -1},
-      {row: -1, col: -1},
+      {row: -1, col: 0}, {row: -1, col: 1}, {row: 0, col: 1},
+      {row: 1, col: 0}, {row: 0, col: -1}, {row: -1, col: -1},
     ];
 
     const offsets = gridRow % 2 === 0 ? evenRowOffsets : oddRowOffsets;
@@ -237,10 +269,8 @@ export default function PlaceMinion() {
         }))
         .filter(
             (neighbor) =>
-                neighbor.row >= 0 &&
-                neighbor.row < 8 &&
-                neighbor.col >= 0 &&
-                neighbor.col < 8
+                neighbor.row >= 0 && neighbor.row < 8 &&
+                neighbor.col >= 0 && neighbor.col < 8
         );
   };
 
@@ -249,11 +279,9 @@ export default function PlaceMinion() {
         prevHexes.map((hex) => ({
           ...hex,
           color:
-              hex.player === 1
-                  ? PLAYER1_COLOR
-                  : hex.player === 2
-                      ? PLAYER2_COLOR
-                      : "rgb(255, 255, 255)",
+              hex.player === 1 ? PLAYER1_COLOR :
+                  hex.player === 2 ? PLAYER2_COLOR :
+                      "rgb(255, 255, 255)",
         }))
     );
   };
@@ -264,39 +292,26 @@ export default function PlaceMinion() {
 
     try {
       const response = await API.buyHex(hex.row, hex.col);
-
       if (response.success) {
         updateGameStateFromBackend(response.gameState);
         setPurchasedHex(false);
         resetHexColors();
-
-        setTimeout(() => {
-          askPlaceCharacter(currentPlayer);
-        }, 500);
+        setTimeout(() => askPlaceCharacter(currentPlayer), 500);
       }
     } catch (error) {
       console.error("Failed to buy hex:", error);
-      const updatedHexes = hexes.map((h) =>
-          h.id === id
-              ? {
-                ...h,
-                player: currentPlayer,
-                color: currentPlayer === 1 ? PLAYER1_COLOR : PLAYER2_COLOR,
-              }
-              : h
-      );
-      setHexes(updatedHexes);
-      setPurchasedHexes((prev) => [...prev, {row: hex.row, col: hex.col}]);
-      setPurchasedHex(false);
-      setTimeout(() => {
-        resetHexColors();
-        askPlaceCharacter(currentPlayer);
-      }, 500);
     }
   };
 
   const askTurn = (player: number) => {
     if (isGameOver) return;
+
+    // Don't show prompt if it's Bot's turn
+    if (player === 2 && isPlayer2Bot) {
+      console.log("🤖 Bot turn, skipping prompt");
+      return;
+    }
+
     setCurrentPlayer(player);
     setTimeout(() => {
       setShowBuyPrompt(true);
@@ -304,6 +319,12 @@ export default function PlaceMinion() {
   };
 
   const askPlaceCharacter = (player: number) => {
+    // Don't show prompt if it's Bot's turn
+    if (player === 2 && isPlayer2Bot) {
+      console.log("🤖 Bot turn, skipping place prompt");
+      return;
+    }
+
     setShowPlacePrompt(true);
   };
 
@@ -335,35 +356,23 @@ export default function PlaceMinion() {
       }
 
       updateGameStateFromBackend(response.gameState);
-
-      const nextPlayer = currentPlayer === 1 ? 2 : 1;
-      setCurrentPlayer(nextPlayer);
-
-      if (!isGameOver) setTimeout(() => askTurn(nextPlayer), 500);
     } catch (error) {
       console.error("Failed to end turn:", error);
-      const nextPlayer = currentPlayer === 1 ? 2 : 1;
-      setCurrentPlayer(nextPlayer);
-      if (nextPlayer === 1) {
-        setTurnCounter((prev) => {
-          const nextTurn = prev < maxTurns ? prev + 1 : prev;
-          if (nextTurn >= maxTurns) setIsGameOver(true);
-          return nextTurn;
-        });
-      }
-      if (!isGameOver) setTimeout(() => askTurn(nextPlayer), 500);
     }
   };
 
-  // ✅ ฟังก์ชัน Bot auto-play
   const handleBotTurn = async () => {
     console.log("🤖 Bot is playing...");
     setMessage("🤖 Bot กำลังคิด...");
 
     try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       const response = await API.endTurn();
+      console.log("🤖 Bot turn response:", response);
 
       if (response.gameOver) {
+        console.log("🏁 Game over!");
         setIsGameOver(true);
         setMessage(null);
         return;
@@ -372,31 +381,25 @@ export default function PlaceMinion() {
       updateGameStateFromBackend(response.gameState);
       setMessage(null);
 
-      const nextPlayer = currentPlayer === 1 ? 2 : 1;
-      setCurrentPlayer(nextPlayer);
+      // Check if free spawn is completed
+      const logs = response.gameState?.gameLog || [];
+      const freeSpawnCompleted = logs.some((log: string) =>
+          log.includes("Free spawn phase completed")
+      );
 
-      if (!isGameOver) setTimeout(() => askTurn(nextPlayer), 500);
+      if (freeSpawnCompleted) {
+        console.log("✅ Free spawn completed, starting turn 1");
+        setIsFreeDrop(false);
+        setIsFreeDropCompleted(true);
+        setShowTurnCounter(true);
+
+        setTimeout(() => {
+          askTurn(1); // Start Player 1's first turn
+        }, 1000);
+      }
     } catch (error) {
       console.error("❌ Bot turn failed:", error);
       setMessage(null);
-    }
-  };
-
-  const finishFreeDropTurn = () => {
-    if (currentPlayer === 1) {
-      setCurrentPlayer(2);
-      setIsFreeDrop(true);
-    } else {
-      setIsFreeDrop(false);
-      setCurrentPlayer(1);
-      setIsFreeDropCompleted(true);
-      setTimeout(() => {
-        setMessage("เริ่ม turn ที่ 1 ของเกม!");
-        setTimeout(() => {
-          setShowTurnCounter(true);
-        }, 100);
-        askTurn(1);
-      }, 300);
     }
   };
 
@@ -412,28 +415,19 @@ export default function PlaceMinion() {
       }
 
       updateGameStateFromBackend(response.gameState);
-
-      const nextPlayer = currentPlayer === 1 ? 2 : 1;
-      setCurrentPlayer(nextPlayer);
-
-      if (!isGameOver) setTimeout(() => askTurn(nextPlayer), 500);
     } catch (error) {
       console.error("Failed to end turn:", error);
-      const nextPlayer = currentPlayer === 1 ? 2 : 1;
-      if (nextPlayer === 1) {
-        setTurnCounter((prev) => {
-          const nextTurn = prev < maxTurns ? prev + 1 : prev;
-          if (nextTurn >= maxTurns) setIsGameOver(true);
-          return nextTurn;
-        });
-      }
-      setCurrentPlayer(nextPlayer);
-      if (!isGameOver) setTimeout(() => askTurn(nextPlayer), 500);
     }
   };
 
   const handleHexClick = (id: number) => {
     if (isGameOver) return;
+
+    if (isBotPlaying) {
+      console.log("⏳ Bot is playing, please wait");
+      return;
+    }
+
     if (draggedMinion && isFreeDrop) {
       placeFreeDropMinion(id);
       return;
@@ -449,7 +443,7 @@ export default function PlaceMinion() {
 
   const placeFreeDropMinion = async (id: number) => {
     const hex = hexes.find((h) => h.id === id);
-    if (!hex || hex.occupiedBy || hex.player !== currentPlayer || hex.color === "rgb(128, 128, 128)") {
+    if (!hex || hex.occupiedBy || hex.player !== currentPlayer) {
       setMessage("❌ ไม่สามารถวางมินเนียนได้!");
       setDraggedMinion(null);
       return;
@@ -461,8 +455,6 @@ export default function PlaceMinion() {
 
       const gameState = await API.spawnMinion(hex.row, hex.col, minionIndex, true);
       console.log("📥 Response from backend:", gameState);
-      console.log("📥 Current player from backend:", gameState.currentPlayerName);
-      console.log("📋 Game logs:", gameState.gameLog);
 
       updateGameStateFromBackend(gameState);
 
@@ -471,8 +463,9 @@ export default function PlaceMinion() {
       document.removeEventListener("mouseup", handleMouseUp);
 
       const logs = gameState.gameLog || [];
-      const freeSpawnCompleted = logs.some((log: string) => log.includes("Free spawn phase completed"));
-      console.log("✅ Free spawn completed?", freeSpawnCompleted);
+      const freeSpawnCompleted = logs.some((log: string) =>
+          log.includes("Free spawn phase completed")
+      );
 
       if (freeSpawnCompleted) {
         console.log("🎮 Starting turn 1");
@@ -486,12 +479,15 @@ export default function PlaceMinion() {
           askTurn(1);
         }, 1500);
       } else {
+        // Don't show message for Bot
         const nextPlayerNum = gameState.currentPlayerName.includes("1") ? 1 : 2;
-        console.log("🔄 Next player for free spawn:", nextPlayerNum);
-
-        setTimeout(() => {
-          setMessage(`Player ${nextPlayerNum}: ลงฟรีได้ 1 มินเนียน \nกรุณาเลือกมินเนียนที่ต้องการลง`);
-        }, 500);
+        if (nextPlayerNum === 2 && isPlayer2Bot) {
+          console.log("🤖 Next is Bot free spawn");
+        } else {
+          setTimeout(() => {
+            setMessage(`Player ${nextPlayerNum}: ลงฟรีได้ 1 มินเนียน \nกรุณาเลือกมินเนียนที่ต้องการลง`);
+          }, 500);
+        }
       }
     } catch (error) {
       console.error("❌ Failed to spawn minion:", error);
@@ -504,7 +500,7 @@ export default function PlaceMinion() {
 
   const placeNormalDropMinion = async (id: number) => {
     const hex = hexes.find((h) => h.id === id);
-    if (!hex || hex.occupiedBy || hex.player !== currentPlayer || hex.color === "rgb(128, 128, 128)") {
+    if (!hex || hex.occupiedBy || hex.player !== currentPlayer) {
       setMessage("❌ ไม่สามารถวางมินเนียนได้!");
       setDraggedMinion(null);
       return;
@@ -530,7 +526,14 @@ export default function PlaceMinion() {
 
   const handleMinionClick = (e: React.MouseEvent, minion: MinionType) => {
     e.preventDefault();
+
+    if (isBotPlaying) {
+      console.log("⏳ Bot is playing, cannot drag minion");
+      return;
+    }
+
     if (!isFreeDrop && !isPlacingCharacter) return;
+
     setDraggedMinion({...minion});
     setMinionPosition({x: e.clientX, y: e.clientY});
     document.addEventListener("mousemove", handleMouseMove);
@@ -545,11 +548,11 @@ export default function PlaceMinion() {
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
     if (!draggedMinion) return;
+
     const nearestHex = hexes.reduce(
         (closest, hex) => {
           const hexCenterX = hex.col * hexSize.width * 0.75 + hexSize.width / 2;
-          const hexCenterY =
-              hex.row * hexSize.height +
+          const hexCenterY = hex.row * hexSize.height +
               (hex.col % 2 === 0 ? 0 : hexSize.height * 0.5) +
               hexSize.height / 2;
           const distance = Math.hypot(hexCenterX - e.clientX, hexCenterY - e.clientY);
@@ -559,6 +562,7 @@ export default function PlaceMinion() {
         },
         {hex: null as HexTile | null, distance: Infinity}
     ).hex;
+
     if (nearestHex && !nearestHex.occupiedBy) {
       if (isFreeDrop) {
         placeFreeDropMinion(nearestHex.id);
@@ -568,21 +572,6 @@ export default function PlaceMinion() {
     }
     setDraggedMinion(null);
   };
-
-  const recordMinionPlacement = (minion: MinionType, hex: HexTile) => {
-    setPlacedMinions((prev) => [
-      ...prev,
-      {minionId: minion.id, row: hex.row, col: hex.col},
-    ]);
-  };
-
-  useEffect(() => {
-    console.log("Minion Placement Records:", placedMinions);
-  }, [placedMinions]);
-
-  useEffect(() => {
-    console.log("ซื้อ Hex ตำแหน่งนี้ไปแล้ว:", purchasedHexes);
-  }, [purchasedHexes]);
 
   const handleCancel = () => {
     const exitGame = window.confirm("ต้องการออกจากเกมหรือไม่?");
@@ -612,7 +601,8 @@ export default function PlaceMinion() {
 
   return (
       <div className="relative h-screen w-screen overflow-hidden">
-        {showBuyPrompt && !showStartScreen && (
+        {/* Only show prompts for human players */}
+        {showBuyPrompt && !showStartScreen && !(currentPlayer === 2 && isPlayer2Bot) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg text-center">
                 <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องการซื้อ hex หรือไม่?</p>
@@ -622,7 +612,7 @@ export default function PlaceMinion() {
             </div>
         )}
 
-        {showPlacePrompt && (
+        {showPlacePrompt && !(currentPlayer === 2 && isPlayer2Bot) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg text-center">
                 <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องวางตัวละครหรือไม่?</p>
@@ -640,8 +630,7 @@ export default function PlaceMinion() {
                       <span key={index}>{line}<br/></span>
                   ))}
                 </p>
-                <button onClick={() => setMessage(null)} className="bg-blue-500 text-white px-6 py-2 rounded">OK
-                </button>
+                <button onClick={() => setMessage(null)} className="bg-blue-500 text-white px-6 py-2 rounded">OK</button>
               </div>
             </div>
         )}
@@ -665,8 +654,7 @@ export default function PlaceMinion() {
               </div>
 
               {showTurnCounter && isFreeDropCompleted && (
-                  <div
-                      className="absolute top-4 right-16 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md text-lg">
+                  <div className="absolute top-4 right-16 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md text-lg">
                     Turn: {turnCounter}/{maxTurns}
                   </div>
               )}
@@ -678,14 +666,8 @@ export default function PlaceMinion() {
                       <div className="text-xl font-bold text-black">
                         Play Again ?
                         <div className="flex justify-center space-x-6">
-                          <button onClick={handleNo}
-                                  className="mt-2 bg-green-500 text-white px-3 py-2 rounded-lg text-lg">
-                            Yes
-                          </button>
-                          <button onClick={handleRestart}
-                                  className="mt-2 bg-red-500 text-white px-4 py-2 rounded-lg text-lg">
-                            No
-                          </button>
+                          <button onClick={handleNo} className="mt-2 bg-green-500 text-white px-3 py-2 rounded-lg text-lg">Yes</button>
+                          <button onClick={handleRestart} className="mt-2 bg-red-500 text-white px-4 py-2 rounded-lg text-lg">No</button>
                         </div>
                       </div>
                     </div>
@@ -704,33 +686,23 @@ export default function PlaceMinion() {
                     const hexX = hex.col * hexSize.width * 0.75;
                     const hexY = hex.row * hexSize.height;
                     return (
-                        <div
-                            key={hex.id}
-                            className="absolute mt-[-10px]"
-                            style={{
-                              width: `${hexSize.width}px`,
-                              height: `${hexSize.height}px`,
-                              left: `${hexX}px`,
-                              top: `${hexY}px`,
-                              transform: hex.col % 2 === 0 ? `translateY(${hexSize.height / 2}px)` : "none",
-                            }}
-                            onClick={() => handleHexClick(hex.id)}
-                        >
+                        <div key={hex.id} className="absolute mt-[-10px]"
+                             style={{
+                               width: `${hexSize.width}px`,
+                               height: `${hexSize.height}px`,
+                               left: `${hexX}px`,
+                               top: `${hexY}px`,
+                               transform: hex.col % 2 === 0 ? `translateY(${hexSize.height / 2}px)` : "none",
+                             }}
+                             onClick={() => handleHexClick(hex.id)}>
                           <div style={{
-                            width: "100%",
-                            height: "100%",
-                            backgroundColor: "gray",
+                            width: "100%", height: "100%", backgroundColor: "gray",
                             clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "2px",
-                            boxSizing: "border-box"
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            padding: "2px", boxSizing: "border-box"
                           }}>
                             <div style={{
-                              width: "100%",
-                              height: "100%",
-                              backgroundColor: hex.color,
+                              width: "100%", height: "100%", backgroundColor: hex.color,
                               clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)",
                               position: "relative"
                             }}>

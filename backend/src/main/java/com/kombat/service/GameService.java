@@ -126,47 +126,49 @@ public class GameService {
         return new GameInitResponse(true, "Game started", getGameStateDTO());
     }
 
-    // ✅ Helper method to initialize starting hexes
+    // Helper method to initialize starting hexes
     private void initializeStartingHexes(Player player1, Player player2, GameMode mode) {
         System.out.println("🏠 Initializing starting hexes for " + mode + " mode");
         System.out.println("   Player 1: " + player1.getName() + " (type: " + player1.getClass().getSimpleName() + ")");
         System.out.println("   Player 2: " + player2.getName() + " (type: " + player2.getClass().getSimpleName() + ")");
 
         // Player 1 starting hexes (top-left corner)
-        // Row 0: (0,0), (0,1), (0,2)
-        // Row 1: (1,0), (1,1)
         HexTile hex00 = board.getTile(0, 0);
         HexTile hex01 = board.getTile(0, 1);
         HexTile hex02 = board.getTile(0, 2);
         HexTile hex10 = board.getTile(1, 0);
         HexTile hex11 = board.getTile(1, 1);
 
-        if (hex00 != null) player1.purchaseHex(hex00);
-        if (hex01 != null) player1.purchaseHex(hex01);
-        if (hex02 != null) player1.purchaseHex(hex02);
-        if (hex10 != null) player1.purchaseHex(hex10);
-        if (hex11 != null) player1.purchaseHex(hex11);
+        int p1Count = 0;
+        if (hex00 != null) { player1.purchaseHex(hex00); p1Count++; }
+        if (hex01 != null) { player1.purchaseHex(hex01); p1Count++; }
+        if (hex02 != null) { player1.purchaseHex(hex02); p1Count++; }
+        if (hex10 != null) { player1.purchaseHex(hex10); p1Count++; }
+        if (hex11 != null) { player1.purchaseHex(hex11); p1Count++; }
 
-        System.out.println("   ✅ Player 1 purchased " + player1.getOwnedHexes().size() + " hexes");
+        System.out.println("   ✅ Player 1 purchased " + p1Count + " hexes");
+        System.out.println("   💰 Player 1 budget: " + player1.getBudget());
 
         // Player 2 starting hexes (bottom-right corner)
-        // Row 7: (7,5), (7,6), (7,7)
-        // Row 6: (6,6), (6,7)
         HexTile hex75 = board.getTile(7, 5);
         HexTile hex76 = board.getTile(7, 6);
         HexTile hex77 = board.getTile(7, 7);
         HexTile hex66 = board.getTile(6, 6);
         HexTile hex67 = board.getTile(6, 7);
 
-        if (hex75 != null) player2.purchaseHex(hex75);
-        if (hex76 != null) player2.purchaseHex(hex76);
-        if (hex77 != null) player2.purchaseHex(hex77);
-        if (hex66 != null) player2.purchaseHex(hex66);
-        if (hex67 != null) player2.purchaseHex(hex67);
+        int p2Count = 0;
+        if (hex75 != null) { player2.purchaseHex(hex75); p2Count++; }
+        if (hex76 != null) { player2.purchaseHex(hex76); p2Count++; }
+        if (hex77 != null) { player2.purchaseHex(hex77); p2Count++; }
+        if (hex66 != null) { player2.purchaseHex(hex66); p2Count++; }
+        if (hex67 != null) { player2.purchaseHex(hex67); p2Count++; }
 
-        System.out.println("   ✅ Player 2 purchased " + player2.getOwnedHexes().size() + " hexes");
-        System.out.println("   💰 Player 1 budget after purchase: " + player1.getBudget());
-        System.out.println("   💰 Player 2 budget after purchase: " + player2.getBudget());
+        System.out.println("   ✅ Player 2 purchased " + p2Count + " hexes");
+        System.out.println("   💰 Player 2 budget: " + player2.getBudget());
+
+        // CRITICAL: Verify hexes are actually owned
+        System.out.println("   📋 Player 1 owned hexes count: " + player1.getOwnedHexes().size());
+        System.out.println("   📋 Player 2 owned hexes count: " + player2.getOwnedHexes().size());
     }
 
     public CommandResponse executeCommand(CommandRequest request) {
@@ -182,7 +184,7 @@ public class GameService {
             if (type == CommandType.BUY_HEX) {
                 return handleBuyHex(currentPlayer, request.getRow(), request.getCol());
             } else if (type == CommandType.SPAWN_MINION) {
-                // ✅ Debug logging
+                // Debug logging
                 System.out.println("🎯 SPAWN_MINION command - Player: " + currentPlayer.getName());
                 System.out.println("🎯 isFreeSpawn: " + request.isFreeSpawn());
                 System.out.println("🎯 freeSpawnPhase: " + freeSpawnPhase);
@@ -228,7 +230,7 @@ public class GameService {
         int nextIndex = (currentIndex + 1) % players.size();
         GameState.currentPlayer = players.get(nextIndex);
 
-        // 4. ✅ Increment turn counter when returning to Player 1 (เพิ่มทีเดียวเท่านั้น!)
+        // 4. Increment turn counter when returning to Player 1 (เพิ่มทีเดียวเท่านั้น!)
         if (nextIndex == 0 && !freeSpawnPhase) {
             GameState.turnCounter++;  // ✅ เพิ่มแค่ตัวเดียว
             System.out.println("🔄 Turn incremented to: " + GameState.turnCounter);
@@ -337,27 +339,46 @@ public class GameService {
     }
 
     private void handleBotTurn(Bot bot) {
+        System.out.println("🤖 Bot " + bot.getName() + " is taking turn...");
         addLog(bot.getName() + " (Bot) is taking turn...");
 
+        // ถ้ายัง free spawn ให้ spawn แล้ว return
         if (freeSpawnPhase) {
+            System.out.println("🤖 Bot free spawn");
             bot.spawnRandomMinion(true);
             freeSpawnsCompleted++;
 
+            // Switch player
+            List<Player> players = GameState.players;
+            int currentIndex = players.indexOf(bot);
+            int nextIndex = (currentIndex + 1) % players.size();
+            GameState.currentPlayer = players.get(nextIndex);
+
             if (freeSpawnsCompleted >= 2) {
                 freeSpawnPhase = false;
-                GameState.currentPlayer = GameState.players.get(0);
+                GameState.currentPlayer = players.get(0);
                 GameState.currentPlayer.startTurn();
                 addLog("✅ Free spawn phase completed! Starting turn 1");
             }
             return;
         }
 
+        // Normal turn logic
+        System.out.println("🤖 Bot normal turn - Budget: " + bot.getBudget());
+
+        // Try to purchase hex
         if (bot.getBudget() >= ConfigLoader.get("hex_purchase_cost")) {
+            System.out.println("🤖 Bot attempting to purchase hex");
             bot.purchaseRandomHex();
         }
+
+        // Try to spawn minion
         if (bot.canSpawn()) {
+            System.out.println("🤖 Bot attempting to spawn minion");
             bot.spawnRandomMinion(false);
         }
+
+        System.out.println("🤖 Bot turn completed");
     }
 
     private List<MinionType> configureMinionTypes(List<MinionConfig> configs) {
