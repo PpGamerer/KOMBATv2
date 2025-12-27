@@ -1,11 +1,12 @@
 # Kickstart Offense with Minion's Best in an Amicable Territory (KOMBAT)
 ### [First version repository](https://github.com/PpGamerer/KOMBAT)
 
-## Project Overview
+## Original Project Specification
+This project was originally developed based on a formal course specification.
 
-A detailed overview of the game concept, rules, and system design is available below.
+[Full Project Specification (PDF)](261200 2567-2 project specifications.pdf)
 
-[KOMBAT Project Overview (PDF)](frontend/public/overview.pdf)
+[Game Overview (PDF)](frontend/public/overview.pdf)
 
 # Project Background
 In the first version, I developed the complete backend system for the game, including:**
