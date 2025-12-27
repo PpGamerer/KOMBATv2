@@ -106,7 +106,7 @@ public class GameService {
         GameState.players.add(player2);
         GameState.currentPlayer = player1;
 
-        // 5. ✅ Initialize starting hexes based on game mode
+        // 5. Initialize starting hexes based on game mode
         initializeStartingHexes(player1, player2, mode);
 
         // 6. Configure Minions
@@ -232,7 +232,7 @@ public class GameService {
 
         // 4. Increment turn counter when returning to Player 1 (เพิ่มทีเดียวเท่านั้น!)
         if (nextIndex == 0 && !freeSpawnPhase) {
-            GameState.turnCounter++;  // ✅ เพิ่มแค่ตัวเดียว
+            GameState.turnCounter++;
             System.out.println("🔄 Turn incremented to: " + GameState.turnCounter);
         }
 
@@ -284,7 +284,7 @@ public class GameService {
 
         MinionType type = GameSetup.minionTypes.get(minionTypeIndex);
 
-        // ✅ For free spawn, bypass normal spawn restrictions
+        // For free spawn, bypass normal spawn restrictions
         Minion spawned;
         if (isFreeSpawn && freeSpawnPhase) {
             System.out.println("✅ Entering free spawn logic");
@@ -296,7 +296,7 @@ public class GameService {
                 addLog(player.getName() + " spawned " + type.getCustomName() +
                         " at (" + (row + 1) + "," + (col + 1) + ") (free spawn " + freeSpawnsCompleted + "/2)");
 
-                // ✅ Switch to next player after free spawn
+                // Switch to next player after free spawn
                 List<Player> players = GameState.players;
                 int currentIndex = players.indexOf(player);
                 int nextIndex = (currentIndex + 1) % players.size();
@@ -306,7 +306,7 @@ public class GameService {
                 System.out.println("🔄 Switched from " + player.getName() + " to " + nextPlayer.getName());
                 addLog("🔄 Switched to " + nextPlayer.getName() + " for free spawn");
 
-                // ✅ If both players have spawned, end free spawn phase
+                // If both players have spawned, end free spawn phase
                 if (freeSpawnsCompleted >= 2) {
                     freeSpawnPhase = false;
                     GameState.currentPlayer = players.get(0); // Reset to Player 1

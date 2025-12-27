@@ -35,6 +35,7 @@ export default function PlaceMinion() {
   const [budgets, setBudgets] = useState({player1: initBudget, player2: initBudget});
   const [gameInitialized, setGameInitialized] = useState(false);
   const [isBotPlaying, setIsBotPlaying] = useState(false);
+  const [isPlayer1Bot, setIsPlayer1Bot] = useState(false);
   const [isPlayer2Bot, setIsPlayer2Bot] = useState(false);
 
   const clearGameData = () => {
@@ -61,9 +62,9 @@ export default function PlaceMinion() {
     }
   }, [selectedMinions, gameInitialized]);
 
-  // ✅ Check and trigger bot turn
+  // Check and trigger bot turn
   useEffect(() => {
-    if (!gameInitialized || isBotPlaying || !isPlayer2Bot) return;
+    if (!gameInitialized || isBotPlaying) return;
 
     const checkAndTriggerBot = async () => {
       try {
@@ -75,14 +76,21 @@ export default function PlaceMinion() {
         console.log("🤖 Check bot trigger:", {
           currentPlayerName,
           currentPlayer,
+          isPlayer1Bot,
           isPlayer2Bot,
           isBotPlaying,
           isFreeDrop
         });
 
-        // ✅ Trigger bot only when it's Player 2's turn
-        if (currentPlayerName?.includes("2") && !isBotPlaying) {
-          console.log("✅ Triggering bot turn");
+        // ✅ เช็คทั้ง Player 1 และ Player 2
+        const isPlayer1Turn = currentPlayerName?.includes("1");
+        const isPlayer2Turn = currentPlayerName?.includes("2");
+
+        const shouldTriggerBot = (isPlayer1Turn && isPlayer1Bot) ||
+            (isPlayer2Turn && isPlayer2Bot);
+
+        if (shouldTriggerBot && !isBotPlaying) {
+          console.log("✅ Triggering bot turn for", currentPlayerName);
           setIsBotPlaying(true);
 
           setTimeout(async () => {
@@ -96,7 +104,7 @@ export default function PlaceMinion() {
     };
 
     checkAndTriggerBot();
-  }, [currentPlayer, gameInitialized, isBotPlaying, isPlayer2Bot]);
+  }, [currentPlayer, gameInitialized, isBotPlaying, isPlayer1Bot, isPlayer2Bot]);
 
   const initializeGame = async (minions: MinionType[]) => {
     try {
@@ -128,13 +136,21 @@ export default function PlaceMinion() {
       const gameState = await API.initGame(payload);
       console.log("✅ Game initialized, state:", gameState);
 
-      // Check if Player 2 is a bot
+      // เช็คทั้ง Player 1 และ Player 2
+      const player1Data = gameState.players?.[0];
+      const player1IsBot = player1Data?.isBot ||
+          player1Data?.name?.includes("Bot") ||
+          player1Data?.shortName?.includes("B");
+
       const player2Data = gameState.players?.[1];
       const player2IsBot = player2Data?.isBot ||
           player2Data?.name?.includes("Bot") ||
           player2Data?.shortName?.includes("B");
 
+      setIsPlayer1Bot(player1IsBot);
       setIsPlayer2Bot(player2IsBot);
+
+      console.log("🤖 Player 1 is Bot:", player1IsBot);
       console.log("🤖 Player 2 is Bot:", player2IsBot);
 
       updateGameStateFromBackend(gameState);
@@ -303,12 +319,18 @@ export default function PlaceMinion() {
     }
   };
 
+  const shouldShowPrompt = (player: number) => {
+    if (player === 1) return !isPlayer1Bot;
+    if (player === 2) return !isPlayer2Bot;
+    return true;
+  };
+
   const askTurn = (player: number) => {
     if (isGameOver) return;
 
-    // Don't show prompt if it's Bot's turn
-    if (player === 2 && isPlayer2Bot) {
-      console.log("🤖 Bot turn, skipping prompt");
+    // Don't show prompt if current player is Bot
+    if (!shouldShowPrompt(player)) {
+      console.log(`🤖 Bot ${player} turn, skipping prompt`);
       return;
     }
 
@@ -319,9 +341,9 @@ export default function PlaceMinion() {
   };
 
   const askPlaceCharacter = (player: number) => {
-    // Don't show prompt if it's Bot's turn
-    if (player === 2 && isPlayer2Bot) {
-      console.log("🤖 Bot turn, skipping place prompt");
+    // Don't show prompt if current player is Bot
+    if (!shouldShowPrompt(player)) {
+      console.log(`🤖 Bot ${player} turn, skipping place prompt`);
       return;
     }
 
@@ -532,6 +554,12 @@ export default function PlaceMinion() {
       return;
     }
 
+    // ✅ ห้ามคนลาก minion ถ้าเป็น turn ของ bot
+    if (!shouldShowPrompt(currentPlayer)) {
+      console.log("🤖 Bot's turn, human cannot drag minion");
+      return;
+    }
+
     if (!isFreeDrop && !isPlacingCharacter) return;
 
     setDraggedMinion({...minion});
@@ -602,7 +630,7 @@ export default function PlaceMinion() {
   return (
       <div className="relative h-screen w-screen overflow-hidden">
         {/* Only show prompts for human players */}
-        {showBuyPrompt && !showStartScreen && !(currentPlayer === 2 && isPlayer2Bot) && (
+        {showBuyPrompt && !showStartScreen && shouldShowPrompt(currentPlayer) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg text-center">
                 <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องการซื้อ hex หรือไม่?</p>
@@ -612,7 +640,7 @@ export default function PlaceMinion() {
             </div>
         )}
 
-        {showPlacePrompt && !(currentPlayer === 2 && isPlayer2Bot) && (
+        {showPlacePrompt && shouldShowPrompt(currentPlayer) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg text-center">
                 <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องวางตัวละครหรือไม่?</p>
