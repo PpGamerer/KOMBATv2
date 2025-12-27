@@ -768,9 +768,9 @@ export default function PlaceMinion() {
                          style={{backgroundImage: "url('/backdrop.jpg')"}}></div>
 
                     <PlayerInfo player={1} budget={budgets.player1} selectedMinions={selectedMinions}
-                                onMinionClick={handleMinionClick}/>
+                                onMinionClick={handleMinionClick} isBot={isPlayer1Bot}/>
                     <PlayerInfo player={2} budget={budgets.player2} selectedMinions={selectedMinions}
-                                onMinionClick={handleMinionClick}/>
+                                onMinionClick={handleMinionClick} isBot={isPlayer2Bot}/>
 
                     <div className="absolute top-4 right-4 z-50">
                         <button onClick={handleCancel} className="w-12 h-12 exit-button">

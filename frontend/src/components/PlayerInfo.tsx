@@ -6,9 +6,10 @@ interface PlayerInfoProps {
     budget: number;
     selectedMinions: MinionType[];
     onMinionClick: (e: React.MouseEvent, minion: MinionType) => void;
+    isBot?: boolean;
 }
 
-const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions, onMinionClick }) => {
+const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions, onMinionClick, isBot }) => {
     if (player === 1) {
         return (
             <div className="absolute top-10 left-7 flex flex-col items-center space-y-6">
@@ -19,7 +20,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                         fontFamily: "'Sigmar', sans-serif",
                     }}
                 >
-                    Player 1
+                    Player 1 {isBot && "🤖"}
                 </h2>
                 <p
                     className="text-white text-2xl font-bold drop-shadow-md"
@@ -135,7 +136,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                         fontFamily: "'Sigmar', sans-serif",
                     }}
                 >
-                    Player 2
+                    Player 2 {isBot && "🤖"}
                 </h2>
             </div>
         </>
