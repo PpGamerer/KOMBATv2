@@ -1,7 +1,7 @@
 # Kickstart Offense with Minion's Best in an Amicable Territory (KOMBAT)
 ### [First version repository](https://github.com/PpGamerer/KOMBAT)
 
-## Project Overview
+# Project Overview
 
 A detailed overview of the game concept, rules, and system design is available below.
 
