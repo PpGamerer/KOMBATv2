@@ -30,6 +30,7 @@ public class GameService {
     private HexGrid board;
     private boolean freeSpawnPhase = false;
     private int freeSpawnsCompleted = 0;
+    private boolean isBotPlaying = false;
 
     public GameService() {
         this.gameLog = new ArrayList<>();
@@ -44,31 +45,48 @@ public class GameService {
     }
 
     public GameInitResponse initializeGame(GameInitRequest request) {
-        // ✅ FULL RESET - Reset ทุกอย่างก่อนเริ่มเกมใหม่
+        // FULL RESET - Reset everything before starting new game
         System.out.println("🔄 Resetting all game state...");
 
-        // Reset GameState singleton
         GameState.reset();
-
-        // Reset HexGrid singleton
         HexGrid.resetInstance();
         board = HexGrid.getInstance();
-
-        // Reset GameSetup
         GameSetup.minionTypes.clear();
-
-        // สร้าง gameState ใหม่
-        gameState = GameState.getInstance(board);
         gameLog.clear();
 
         // Reset free spawn tracking
         freeSpawnPhase = request.isWithFreeSpawn();
         freeSpawnsCompleted = 0;
+        isBotPlaying = false;
 
         System.out.println("✅ Reset complete!");
 
         // 1. Load configuration
         ConfigLoader.loadConfig("config.txt");
+
+        // Verify config was loaded successfully
+        if (!ConfigLoader.isConfigLoaded()) {
+            System.err.println("❌❌ CRITICAL: Failed to load config!");
+            return new GameInitResponse(false, "Failed to load config file", null);
+        }
+
+        // Print all loaded settings
+        System.out.println("📋 Loaded config settings:");
+        for (Map.Entry<String, Integer> entry : ConfigLoader.getAllSettings().entrySet()) {
+            System.out.println("   " + entry.getKey() + " = " + entry.getValue());
+        }
+
+        // CREATE GameState (after config is loaded)
+        gameState = GameState.getInstance(board);
+
+        // Verify maxTurns was set correctly
+        System.out.println("✅ GameState.maxTurns = " + GameState.maxTurns);
+        if (GameState.maxTurns <= 1) {
+            System.err.println("⚠️ WARNING: maxTurns is too low! Setting to 69");
+            GameState.maxTurns = 69;
+        }
+
+        System.out.println("✅ Initialization complete!");
 
         // 2. Determine Game Mode
         GameMode mode;
@@ -104,7 +122,20 @@ public class GameService {
         GameState.players.clear();
         GameState.players.add(player1);
         GameState.players.add(player2);
+
+        // CRITICAL: Set Player 1 as starting player
         GameState.currentPlayer = player1;
+
+        // CRITICAL: Initialize turn counter based on free spawn mode
+        if (request.isWithFreeSpawn()) {
+            GameState.turnCounter = 0; // Will be set to 1 after free spawn completes
+            System.out.println("📢 Turn counter: 0 (free spawn phase)");
+        } else {
+            GameState.turnCounter = 1; // Start at turn 1 immediately
+            System.out.println("📢 Turn counter: 1 (no free spawn)");
+        }
+
+        System.out.println("👤 Starting player: " + player1.getName());
 
         // 5. Initialize starting hexes based on game mode
         initializeStartingHexes(player1, player2, mode);
@@ -119,6 +150,12 @@ public class GameService {
         // 7. Handle free spawn phase
         if (request.isWithFreeSpawn()) {
             addLog("🎮 Free spawn phase started - Both players can spawn 1 free minion");
+            System.out.println("🎮 Free spawn: Current player is " + GameState.currentPlayer.getName());
+
+        } else {
+            // If no free spawn, start Player 1's turn immediately
+            GameState.currentPlayer.startTurn();
+            addLog("Turn 1 - " + GameState.currentPlayer.getName());
         }
 
         addLog("Game initialized successfully in " + mode + " mode");
@@ -132,7 +169,11 @@ public class GameService {
         System.out.println("   Player 1: " + player1.getName() + " (type: " + player1.getClass().getSimpleName() + ")");
         System.out.println("   Player 2: " + player2.getName() + " (type: " + player2.getClass().getSimpleName() + ")");
 
-        // Player 1 starting hexes (top-left corner)
+        // Check budget BEFORE assigning starting hexes
+        System.out.println("   💰 Player 1 budget BEFORE: " + player1.getBudget());
+        System.out.println("   💰 Player 2 budget BEFORE: " + player2.getBudget());
+
+        // Player 1 starting hexes (top-left corner) - FREE
         HexTile hex00 = board.getTile(0, 0);
         HexTile hex01 = board.getTile(0, 1);
         HexTile hex02 = board.getTile(0, 2);
@@ -140,16 +181,16 @@ public class GameService {
         HexTile hex11 = board.getTile(1, 1);
 
         int p1Count = 0;
-        if (hex00 != null) { player1.purchaseHex(hex00); p1Count++; }
-        if (hex01 != null) { player1.purchaseHex(hex01); p1Count++; }
-        if (hex02 != null) { player1.purchaseHex(hex02); p1Count++; }
-        if (hex10 != null) { player1.purchaseHex(hex10); p1Count++; }
-        if (hex11 != null) { player1.purchaseHex(hex11); p1Count++; }
+        // Use direct assignment instead of purchaseHex() to avoid cost
+        if (hex00 != null) { assignHexToPlayer(player1, hex00); p1Count++; }
+        if (hex01 != null) { assignHexToPlayer(player1, hex01); p1Count++; }
+        if (hex02 != null) { assignHexToPlayer(player1, hex02); p1Count++; }
+        if (hex10 != null) { assignHexToPlayer(player1, hex10); p1Count++; }
+        if (hex11 != null) { assignHexToPlayer(player1, hex11); p1Count++; }
 
-        System.out.println("   ✅ Player 1 purchased " + p1Count + " hexes");
-        System.out.println("   💰 Player 1 budget: " + player1.getBudget());
+        System.out.println("   ✅ Player 1 received " + p1Count + " starting hexes (FREE)");
 
-        // Player 2 starting hexes (bottom-right corner)
+        // Player 2 starting hexes (bottom-right corner) - FREE
         HexTile hex75 = board.getTile(7, 5);
         HexTile hex76 = board.getTile(7, 6);
         HexTile hex77 = board.getTile(7, 7);
@@ -157,19 +198,32 @@ public class GameService {
         HexTile hex67 = board.getTile(6, 7);
 
         int p2Count = 0;
-        if (hex75 != null) { player2.purchaseHex(hex75); p2Count++; }
-        if (hex76 != null) { player2.purchaseHex(hex76); p2Count++; }
-        if (hex77 != null) { player2.purchaseHex(hex77); p2Count++; }
-        if (hex66 != null) { player2.purchaseHex(hex66); p2Count++; }
-        if (hex67 != null) { player2.purchaseHex(hex67); p2Count++; }
+        // Use direct assignment instead of purchaseHex() to avoid cost
+        if (hex75 != null) { assignHexToPlayer(player2, hex75); p2Count++; }
+        if (hex76 != null) { assignHexToPlayer(player2, hex76); p2Count++; }
+        if (hex77 != null) { assignHexToPlayer(player2, hex77); p2Count++; }
+        if (hex66 != null) { assignHexToPlayer(player2, hex66); p2Count++; }
+        if (hex67 != null) { assignHexToPlayer(player2, hex67); p2Count++; }
 
-        System.out.println("   ✅ Player 2 purchased " + p2Count + " hexes");
-        System.out.println("   💰 Player 2 budget: " + player2.getBudget());
+        System.out.println("   ✅ Player 2 received " + p2Count + " starting hexes (FREE)");
+
+        // Check budget AFTER - should be unchanged!
+        System.out.println("   💰 Player 1 budget AFTER: " + player1.getBudget());
+        System.out.println("   💰 Player 2 budget AFTER: " + player2.getBudget());
 
         // CRITICAL: Verify hexes are actually owned
         System.out.println("   📋 Player 1 owned hexes count: " + player1.getOwnedHexes().size());
         System.out.println("   📋 Player 2 owned hexes count: " + player2.getOwnedHexes().size());
     }
+
+    private void assignHexToPlayer(Player player, HexTile hex) {
+        if (hex != null && !hex.isBought()) {
+            player.getOwnedHexes().add(hex);
+            hex.owner = player;
+            // NO budget deduction for starting hexes!
+        }
+    }
+
 
     public CommandResponse executeCommand(CommandRequest request) {
         if (gameState == null) {
@@ -210,14 +264,26 @@ public class GameService {
 
         Player currentPlayer = GameState.currentPlayer;
 
-        // 1. Execute Strategies (only if not in free spawn phase)
-        if (!freeSpawnPhase) {
-            executeMinionStrategies(currentPlayer);
+        // ✅ CRITICAL: During free spawn phase, ONLY handle bot spawning
+        if (freeSpawnPhase) {
+            System.out.println("🎯 endTurn() called during FREE SPAWN phase");
+
+            // If current player is a bot, handle their free spawn
+            if (currentPlayer instanceof Bot) {
+                handleBotTurn((Bot) currentPlayer);
+            }
+
+            // Don't do anything else during free spawn
+            return new TurnResponse(true, "Free spawn turn", getGameStateDTO(), false);
         }
+
+        // ✅ Normal turn logic (after free spawn)
+
+        // 1. Execute Strategies
+        executeMinionStrategies(currentPlayer);
 
         // 2. Check Game Over
         boolean gameOver = gameState.isGameOver();
-
         if (gameOver) {
             String winner = gameState.getWinnerName();
             addLog("Game Over! Winner: " + winner);
@@ -230,23 +296,23 @@ public class GameService {
         int nextIndex = (currentIndex + 1) % players.size();
         GameState.currentPlayer = players.get(nextIndex);
 
-        // 4. Increment turn counter when returning to Player 1 (เพิ่มทีเดียวเท่านั้น!)
-        if (nextIndex == 0 && !freeSpawnPhase) {
+        // 4. Increment turn counter when returning to Player 1
+        if (nextIndex == 0) {
             GameState.turnCounter++;
             System.out.println("🔄 Turn incremented to: " + GameState.turnCounter);
+            addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
+        } else {
+            addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
         }
 
-        // 5. Start Turn (Add Budget/Interest) - only if not in free spawn phase
-        if (!freeSpawnPhase) {
-            GameState.currentPlayer.startTurn();
-        }
+        // 5. Start Turn
+        GameState.currentPlayer.startTurn();
 
         // 6. Handle Bot Turn
         if (GameState.currentPlayer instanceof Bot) {
             handleBotTurn((Bot) GameState.currentPlayer);
         }
 
-        addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
         return new TurnResponse(true, "Turn ended", getGameStateDTO(), false);
     }
 
@@ -271,7 +337,9 @@ public class GameService {
     }
 
     private CommandResponse handleSpawnMinion(Player player, int minionTypeIndex, int row, int col, boolean isFreeSpawn) {
-        System.out.println("🔍 handleSpawnMinion called - Player: " + player.getName() + ", isFreeSpawn: " + isFreeSpawn + ", freeSpawnPhase: " + freeSpawnPhase);
+        System.out.println("🔍 handleSpawnMinion called - Player: " + player.getName() +
+                ", isFreeSpawn: " + isFreeSpawn +
+                ", freeSpawnPhase: " + freeSpawnPhase);
 
         if (minionTypeIndex < 0 || minionTypeIndex >= GameSetup.minionTypes.size()) {
             return new CommandResponse(false, "Invalid minion type index", getGameStateDTO());
@@ -284,7 +352,7 @@ public class GameService {
 
         MinionType type = GameSetup.minionTypes.get(minionTypeIndex);
 
-        // For free spawn, bypass normal spawn restrictions
+        // ✅ For free spawn, bypass normal spawn restrictions
         Minion spawned;
         if (isFreeSpawn && freeSpawnPhase) {
             System.out.println("✅ Entering free spawn logic");
@@ -306,13 +374,16 @@ public class GameService {
                 System.out.println("🔄 Switched from " + player.getName() + " to " + nextPlayer.getName());
                 addLog("🔄 Switched to " + nextPlayer.getName() + " for free spawn");
 
-                // If both players have spawned, end free spawn phase
+                // ✅ If both players have spawned, end free spawn phase
                 if (freeSpawnsCompleted >= 2) {
                     freeSpawnPhase = false;
                     GameState.currentPlayer = players.get(0); // Reset to Player 1
+                    GameState.turnCounter = 1; // ✅ Set turn counter to 1
                     GameState.currentPlayer.startTurn(); // Start first real turn
+
                     System.out.println("✅ Free spawn phase completed!");
-                    addLog("✅ Free spawn phase completed! Starting turn 1");
+                    addLog("✅ Free spawn phase completed! Starting Turn 1");
+                    addLog("Turn 1 - " + GameState.currentPlayer.getName());
                 }
 
                 return new CommandResponse(true, "Free minion spawned successfully", getGameStateDTO());
@@ -321,6 +392,7 @@ public class GameService {
                 return new CommandResponse(false, "Failed to spawn minion on target hex", getGameStateDTO());
             }
         } else {
+            // ✅ Normal spawn (not free spawn)
             System.out.println("⚠️ Not in free spawn mode - isFreeSpawn: " + isFreeSpawn + ", freeSpawnPhase: " + freeSpawnPhase);
             spawned = player.spawnMinion(targetHex, type, false);
 
@@ -340,45 +412,73 @@ public class GameService {
 
     private void handleBotTurn(Bot bot) {
         System.out.println("🤖 Bot " + bot.getName() + " is taking turn...");
-        addLog(bot.getName() + " (Bot) is taking turn...");
 
-        // ถ้ายัง free spawn ให้ spawn แล้ว return
-        if (freeSpawnPhase) {
-            System.out.println("🤖 Bot free spawn");
-            bot.spawnRandomMinion(true);
-            freeSpawnsCompleted++;
-
-            // Switch player
-            List<Player> players = GameState.players;
-            int currentIndex = players.indexOf(bot);
-            int nextIndex = (currentIndex + 1) % players.size();
-            GameState.currentPlayer = players.get(nextIndex);
-
-            if (freeSpawnsCompleted >= 2) {
-                freeSpawnPhase = false;
-                GameState.currentPlayer = players.get(0);
-                GameState.currentPlayer.startTurn();
-                addLog("✅ Free spawn phase completed! Starting turn 1");
-            }
+        // ✅ Prevent duplicate bot calls
+        if (isBotPlaying) {
+            System.out.println("⚠️ Bot already playing, skipping");
             return;
         }
+        isBotPlaying = true;
 
-        // Normal turn logic
-        System.out.println("🤖 Bot normal turn - Budget: " + bot.getBudget());
+        try {
+            // ✅ Handle free spawn phase separately
+            if (freeSpawnPhase) {
+                System.out.println("🤖 Bot free spawn - " + bot.getName());
+                bot.spawnRandomMinion(true);
+                freeSpawnsCompleted++;
 
-        // Try to purchase hex
-        if (bot.getBudget() >= ConfigLoader.get("hex_purchase_cost")) {
-            System.out.println("🤖 Bot attempting to purchase hex");
-            bot.purchaseRandomHex();
+                addLog(bot.getName() + " spawned free minion (" + freeSpawnsCompleted + "/2)");
+
+                // ✅ Check if free spawn is complete BEFORE switching
+                if (freeSpawnsCompleted >= 2) {
+                    freeSpawnPhase = false;
+                    List<Player> players = GameState.players;
+                    GameState.currentPlayer = players.get(0); // Start with Player 1
+                    GameState.turnCounter = 1; // ✅ Set turn counter to 1
+                    GameState.currentPlayer.startTurn(); // Start first real turn
+
+                    addLog("✅ Free spawn phase completed! Starting Turn 1");
+                    addLog("Turn 1 - " + GameState.currentPlayer.getName());
+                    System.out.println("✅ Free spawn completed. Turn counter: " + GameState.turnCounter);
+                    System.out.println("✅ Next player for turn 1: " + GameState.currentPlayer.getName());
+                } else {
+                    // Switch to next player for their free spawn
+                    List<Player> players = GameState.players;
+                    int currentIndex = players.indexOf(bot);
+                    int nextIndex = (currentIndex + 1) % players.size();
+                    Player nextPlayer = players.get(nextIndex);
+                    GameState.currentPlayer = nextPlayer;
+
+                    System.out.println("🔄 Switched from " + bot.getName() + " to " + nextPlayer.getName() + " for free spawn");
+                }
+
+                return; // ✅ Exit immediately after free spawn
+            }
+
+            // ✅ Normal turn logic (after free spawn phase)
+            addLog(bot.getName() + " (Bot) is taking turn...");
+            System.out.println("🤖 Bot normal turn - Budget: " + bot.getBudget());
+
+            // Try to purchase hex
+            if (bot.getBudget() >= ConfigLoader.get("hex_purchase_cost")) {
+                System.out.println("🤖 Bot attempting to purchase hex");
+                bot.purchaseRandomHex();
+            }
+
+            // Try to spawn minion
+            if (bot.canSpawn()) {
+                System.out.println("🤖 Bot attempting to spawn minion");
+                bot.spawnRandomMinion(false);
+            }
+
+            System.out.println("🤖 Bot turn completed");
+
+        } catch (Exception e) {
+            System.err.println("❌ Bot turn error: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            isBotPlaying = false;
         }
-
-        // Try to spawn minion
-        if (bot.canSpawn()) {
-            System.out.println("🤖 Bot attempting to spawn minion");
-            bot.spawnRandomMinion(false);
-        }
-
-        System.out.println("🤖 Bot turn completed");
     }
 
     private List<MinionType> configureMinionTypes(List<MinionConfig> configs) {

@@ -39,8 +39,21 @@ public class GameState {
     // Constructor
     public GameState(HexGrid board) {
         GameState.board = board;
-        ConfigLoader.loadConfig("backend/config.txt");
-        maxTurns = ConfigLoader.get("max_turns");
+
+        try {
+            maxTurns = ConfigLoader.get("max_turns");
+            System.out.println("🎯 GameState initialized with maxTurns: " + maxTurns);
+
+            // Safety check
+            if (maxTurns <= 0) {
+                System.err.println("⚠️ WARNING: maxTurns is 0 or negative! Using default 69");
+                maxTurns = 69;
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Failed to get max_turns from config! Using default 69");
+            maxTurns = 69;
+        }
+
         turnCounter = 1;
     }
 
@@ -68,17 +81,27 @@ public class GameState {
     }
 
     public boolean isGameOver() {
-        if (turnCounter > maxTurns) return true;
+        if (turnCounter > maxTurns) {
+            System.out.println("🏁 Game Over: Max turns reached");
+            return true;
+        }
 
         int playersWithMinions = 0;
         for (Player player : players) {
+            int minionCount = player.getMinions().size();
+            System.out.println("   " + player.getName() + " minion count: " + minionCount);
             if (!player.getMinions().isEmpty()) {
                 playersWithMinions++;
             }
         }
-        return turnCounter > 2 && playersWithMinions <= 1;
-    }
 
+        boolean gameOver = turnCounter > 2 && playersWithMinions <= 1;
+        if (gameOver) {
+            System.out.println("🏁 Game Over: Only " + playersWithMinions + " player(s) have minions left");
+        }
+
+        return gameOver;
+    }
     public String getWinnerName() {
         if (!isGameOver()) return null;
 
@@ -102,6 +125,9 @@ public class GameState {
     }
 
     public void executeMinionStrategies(Player player) {
+        System.out.println("🎯 Executing strategies for " + player.getName());
+        System.out.println("   Minions BEFORE: " + player.getMinions().size());
+
         List<Minion> minions = new ArrayList<>(player.getMinions());
         for (Minion minion : minions) {
             HexTile tile = board.getTile(minion.getRow(), minion.getCol());
@@ -111,10 +137,20 @@ public class GameState {
             updateSpecialVariables();
 
             try {
+                System.out.println("   Executing strategy for: " + minion.getName() + " at (" + minion.getRow() + "," + minion.getCol() + ")");
                 minion.executeStrategy();
+                System.out.println("   After strategy - Minion at: (" + minion.getRow() + "," + minion.getCol() + ")");
+                System.out.println("   Minions count: " + player.getMinions().size());
             } catch (Exception e) {
                 System.out.println("Strategy Error (" + minion.getName() + "): " + e.getMessage());
             }
+        }
+
+        System.out.println("   Minions AFTER: " + player.getMinions().size());
+
+        // ✅ Debug: Print all players' minion counts
+        for (Player p : players) {
+            System.out.println("   Player " + p.getName() + " has " + p.getMinions().size() + " minions");
         }
     }
 
