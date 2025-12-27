@@ -414,6 +414,23 @@ export default function PlaceMinion() {
             }
 
             updateGameStateFromBackend(response.gameState);
+
+            // CRITICAL: After updating state, trigger next player's turn prompt
+            const nextPlayerNum = response.gameState?.currentPlayerName?.includes("1") ? 1 : 2;
+            console.log("🎯 Turn ended, next player:", nextPlayerNum);
+
+            // Check if next player is human
+            const isNextPlayerBot = (nextPlayerNum === 1 && isPlayer1Bot) || (nextPlayerNum === 2 && isPlayer2Bot);
+
+            if (!isNextPlayerBot) {
+                console.log("👤 Next player is human, showing prompt");
+                setTimeout(() => {
+                    askTurn(nextPlayerNum);
+                }, 500);
+            } else {
+                console.log("🤖 Next player is bot, will be handled by useEffect");
+            }
+
         } catch (error) {
             console.error("Failed to end turn:", error);
         }
@@ -484,6 +501,23 @@ export default function PlaceMinion() {
             }
 
             updateGameStateFromBackend(response.gameState);
+
+            // CRITICAL: After updating state, trigger next player's turn prompt
+            const nextPlayerNum = response.gameState?.currentPlayerName?.includes("1") ? 1 : 2;
+            console.log("🎯 Turn ended, next player:", nextPlayerNum);
+
+            // Check if next player is human
+            const isNextPlayerBot = (nextPlayerNum === 1 && isPlayer1Bot) || (nextPlayerNum === 2 && isPlayer2Bot);
+
+            if (!isNextPlayerBot) {
+                console.log("👤 Next player is human, showing prompt");
+                setTimeout(() => {
+                    askTurn(nextPlayerNum);
+                }, 500);
+            } else {
+                console.log("🤖 Next player is bot, will be handled by useEffect");
+            }
+
         } catch (error) {
             console.error("Failed to end turn:", error);
         }
