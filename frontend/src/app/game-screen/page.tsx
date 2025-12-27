@@ -451,10 +451,10 @@ export default function PlaceMinion() {
 
     const handleBotTurn = async () => {
         console.log("🤖 Bot is playing...");
-        setMessage("🤖 Bot กำลังคิด...");
+        setMessage("🤖 Bot is playing...");
 
         try {
-            // ✅ Add extra safety delay
+            // Add extra safety delay
             await new Promise(resolve => setTimeout(resolve, 1500));
 
             const response = await API.endTurn();
@@ -483,7 +483,7 @@ export default function PlaceMinion() {
                 setIsFreeDropCompleted(true);
                 setShowTurnCounter(true);
 
-                // ✅ Don't auto-trigger next turn, let useEffect handle it
+                // Don't auto-trigger next turn, let useEffect handle it
                 setTimeout(() => {
                     const nextPlayer = response.gameState?.currentPlayerName?.includes("1") ? 1 : 2;
                     console.log("🎯 Free spawn done, next player:", nextPlayer);

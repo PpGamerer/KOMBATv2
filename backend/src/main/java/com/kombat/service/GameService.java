@@ -264,7 +264,7 @@ public class GameService {
 
         Player currentPlayer = GameState.currentPlayer;
 
-        // ✅ CRITICAL: During free spawn phase, ONLY handle bot spawning
+        // CRITICAL: During free spawn phase, ONLY handle bot spawning
         if (freeSpawnPhase) {
             System.out.println("🎯 endTurn() called during FREE SPAWN phase");
 
@@ -277,16 +277,17 @@ public class GameService {
             return new TurnResponse(true, "Free spawn turn", getGameStateDTO(), false);
         }
 
-        // ✅ Normal turn logic (after free spawn)
+        // Normal turn logic (after free spawn)
 
         // 1. Execute Strategies
         executeMinionStrategies(currentPlayer);
 
-        // 2. Check Game Over
+        // 2. Check Game Over IMMEDIATELY after strategies
         boolean gameOver = gameState.isGameOver();
         if (gameOver) {
             String winner = gameState.getWinnerName();
             addLog("Game Over! Winner: " + winner);
+            System.out.println("🏁 GAME OVER - Stopping all execution");
             return new TurnResponse(true, "Game ended", getGameStateDTO(), true);
         }
 
@@ -300,6 +301,15 @@ public class GameService {
         if (nextIndex == 0) {
             GameState.turnCounter++;
             System.out.println("🔄 Turn incremented to: " + GameState.turnCounter);
+
+            // Check Game Over AGAIN after turn increment
+            if (gameState.isGameOver()) {
+                String winner = gameState.getWinnerName();
+                addLog("Game Over! Winner: " + winner);
+                System.out.println("🏁 GAME OVER after turn increment - Max turns reached");
+                return new TurnResponse(true, "Game ended", getGameStateDTO(), true);
+            }
+
             addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
         } else {
             addLog("Turn " + GameState.turnCounter + " - " + GameState.currentPlayer.getName());
@@ -308,9 +318,17 @@ public class GameService {
         // 5. Start Turn
         GameState.currentPlayer.startTurn();
 
-        // 6. Handle Bot Turn
+        // 6. Handle Bot Turn (but stop if game over after bot plays)
         if (GameState.currentPlayer instanceof Bot) {
             handleBotTurn((Bot) GameState.currentPlayer);
+
+            // Check Game Over after bot turn
+            if (gameState.isGameOver()) {
+                String winner = gameState.getWinnerName();
+                addLog("Game Over! Winner: " + winner);
+                System.out.println("🏁 GAME OVER after bot turn");
+                return new TurnResponse(true, "Game ended", getGameStateDTO(), true);
+            }
         }
 
         return new TurnResponse(true, "Turn ended", getGameStateDTO(), false);
