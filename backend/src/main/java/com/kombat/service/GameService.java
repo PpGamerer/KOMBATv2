@@ -573,6 +573,7 @@ public class GameService {
         }
         dto.setGameLog(new ArrayList<>(gameLog));
 
+        dto.setConfig(getConfigDTO());
         // Board
         List<HexTileDTO> hexTiles = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
@@ -631,5 +632,18 @@ public class GameService {
     private void addLog(String message) {
         gameLog.add(message);
         System.out.println("[GAME LOG] " + message);
+    }
+
+    private ConfigDTO getConfigDTO() {
+        ConfigDTO config = new ConfigDTO();
+        config.setSpawnCost(ConfigLoader.get("spawn_cost"));
+        config.setHexPurchaseCost(ConfigLoader.get("hex_purchase_cost"));
+        config.setInitBudget(ConfigLoader.get("init_budget"));
+        config.setTurnBudget(ConfigLoader.get("turn_budget"));
+        config.setMaxBudget(ConfigLoader.get("max_budget"));
+        config.setInterestPct(ConfigLoader.get("interest_pct"));
+        config.setMaxTurns(ConfigLoader.get("max_turns"));
+        config.setMaxSpawns(ConfigLoader.get("max_spawns"));
+        return config;
     }
 }

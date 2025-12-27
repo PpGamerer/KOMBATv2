@@ -36,6 +36,13 @@ export default function PlaceMinion() {
     const [isPlayer1Bot, setIsPlayer1Bot] = useState(false);
     const [isPlayer2Bot, setIsPlayer2Bot] = useState(false);
     const [winner, setWinner] = useState<string | null>(null);
+    const [gameConfig, setGameConfig] = useState<{
+        hexCost: number;
+        spawnCost: number;
+    }>({
+        hexCost: 1000,
+        spawnCost: 100
+    });
 
     const clearGameData = () => {
         sessionStorage.removeItem('selectedMinions');
@@ -83,14 +90,14 @@ export default function PlaceMinion() {
                     isFreeDrop
                 });
 
-                // ✅ CRITICAL: Always sync currentPlayer with backend first
+                // CRITICAL: Always sync currentPlayer with backend first
                 if (actualCurrentPlayer !== currentPlayer) {
                     console.log("💤 Updating current player to:", actualCurrentPlayer);
                     setCurrentPlayer(actualCurrentPlayer);
                     return; // Exit and let next useEffect trigger check bot
                 }
 
-                // ✅ Check if current player is a bot
+                // Check if current player is a bot
                 const shouldTriggerBot =
                     (actualCurrentPlayer === 1 && isPlayer1Bot) ||
                     (actualCurrentPlayer === 2 && isPlayer2Bot);
@@ -219,6 +226,17 @@ export default function PlaceMinion() {
             });
         }
 
+        if (gameState.config) {
+            setGameConfig({
+                hexCost: gameState.config.hexPurchaseCost || 1000,
+                spawnCost: gameState.config.spawnCost || 100
+            });
+            console.log("📋 Config updated:", {
+                hexCost: gameState.config.hexPurchaseCost,
+                spawnCost: gameState.config.spawnCost
+            });
+        }
+
         if (gameState.board) {
             const newHexes: HexTile[] = gameState.board.map((tile: any, index: number) => {
                 let color = "rgb(249, 247, 228)";
@@ -295,7 +313,7 @@ export default function PlaceMinion() {
             }
 
             const timer = setTimeout(() => {
-                setMessage(`Player ${currentPlayer}: ลงฟรีได้ 1 มินเนียน \nกรุณาเลือกมินเนียนที่ต้องการลง`);
+                setMessage(`Player ${currentPlayer}: Select a minion to spawn (Free)`);
             }, 500);
             return () => clearTimeout(timer);
         }
@@ -391,7 +409,7 @@ export default function PlaceMinion() {
 
     const askPlaceCharacter = (player: number) => {
         if (!shouldShowPrompt(player)) {
-            console.log(`🤖 Bot ${player} turn, skipping place prompt`);
+            console.log(`🤖 Bot ${player} turn, skipping spawn prompt`);
             return;
         }
 
@@ -559,8 +577,21 @@ export default function PlaceMinion() {
 
     const placeFreeDropMinion = async (id: number) => {
         const hex = hexes.find((h) => h.id === id);
-        if (!hex || hex.occupiedBy || hex.player !== currentPlayer) {
-            setMessage("❌ ไม่สามารถวางมินเนียนได้!");
+
+        if (!hex) {
+            setMessage("❌ Tile not found!");
+            setDraggedMinion(null);
+            return;
+        }
+
+        if (hex.occupiedBy) {
+            setMessage("❌ Tile occupied! \nPlease select an empty tile.");
+            setDraggedMinion(null);
+            return;
+        }
+
+        if (hex.player !== currentPlayer) {
+            setMessage(`❌ Cannot spawn here! \nMust spawn in your ${currentPlayer === 1 ? 'Orange' : 'Green'} area.`);
             setDraggedMinion(null);
             return;
         }
@@ -588,7 +619,7 @@ export default function PlaceMinion() {
                 setIsFreeDrop(false);
                 setIsFreeDropCompleted(true);
                 setShowTurnCounter(true);
-                setMessage("เริ่ม turn ที่ 1 ของเกม!");
+                setMessage("Starting Turn 1");
 
                 setTimeout(() => {
                     setMessage(null);
@@ -600,13 +631,13 @@ export default function PlaceMinion() {
                     console.log("🤖 Next is Bot free spawn");
                 } else {
                     setTimeout(() => {
-                        setMessage(`Player ${nextPlayerNum}: ลงฟรีได้ 1 มินเนียน \nกรุณาเลือกมินเนียนที่ต้องการลง`);
+                        setMessage(`Player ${nextPlayerNum}: Select a minion to spawn (Free)`);
                     }, 500);
                 }
             }
         } catch (error) {
             console.error("❌ Failed to spawn minion:", error);
-            setMessage(`❌ ${error instanceof Error ? error.message : 'ไม่สามารถวางมินเนียนได้'}`);
+            setMessage(`❌ ${error instanceof Error ? error.message : 'Cannot spawn minion!'}`);
             setDraggedMinion(null);
             document.removeEventListener("mousemove", handleMouseMove);
             document.removeEventListener("mouseup", handleMouseUp);
@@ -615,8 +646,21 @@ export default function PlaceMinion() {
 
     const placeNormalDropMinion = async (id: number) => {
         const hex = hexes.find((h) => h.id === id);
-        if (!hex || hex.occupiedBy || hex.player !== currentPlayer) {
-            setMessage("❌ ไม่สามารถวางมินเนียนได้!");
+
+        if (!hex) {
+            setMessage("❌ Tile not found!");
+            setDraggedMinion(null);
+            return;
+        }
+
+        if (hex.occupiedBy) {
+            setMessage("❌ Tile occupied! \nPlease select an empty tile.");
+            setDraggedMinion(null);
+            return;
+        }
+
+        if (hex.player !== currentPlayer) {
+            setMessage(`❌ Cannot spawn here! \nMust spawn in your ${currentPlayer === 1 ? 'Orange' : 'Green'} area.`);
             setDraggedMinion(null);
             return;
         }
@@ -632,7 +676,7 @@ export default function PlaceMinion() {
             finishPlacingCharacter();
         } catch (error) {
             console.error("❌ Failed to spawn minion:", error);
-            setMessage(`❌ ${error instanceof Error ? error.message : 'ไม่สามารถวางมินเนียนได้'}`);
+            setMessage(`❌ ${error instanceof Error ? error.message : 'Cannot spawn minion!'}`);
             setDraggedMinion(null);
             document.removeEventListener("mousemove", handleMouseMove);
             document.removeEventListener("mouseup", handleMouseUp);
@@ -694,7 +738,7 @@ export default function PlaceMinion() {
     };
 
     const handleCancel = () => {
-        const exitGame = window.confirm("ต้องการออกจากเกมหรือไม่?");
+        const exitGame = window.confirm("Quit Game?");
         if (exitGame) {
             clearGameData();
             router.push('/');
@@ -719,16 +763,62 @@ export default function PlaceMinion() {
         );
     }
 
+
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {showBuyPrompt && !showStartScreen && shouldShowPrompt(currentPlayer) && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg text-center">
-                        <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องการซื้อ hex
-                            หรือไม่?</p>
-                        <button onClick={handleYesBuy} className="bg-green-500 text-white px-6 py-2 rounded mr-4">Yes
-                        </button>
-                        <button onClick={handleNoBuy} className="bg-red-500 text-white px-6 py-2 rounded">No</button>
+                        <p className="text-xl mb-4 text-black">Player {currentPlayer}: Do you want to buy a
+                            hex?</p>
+                        {(() => {
+                            const currentBudget = currentPlayer === 1 ? budgets.player1 : budgets.player2;
+                            const canAfford = currentBudget >= gameConfig.hexCost;
+
+                            return (
+                                <>
+                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg mb-6 border border-blue-200">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-700 font-medium">💰 Hex's cost:</span>
+                                            <span className="text-2xl font-bold text-blue-600">
+                                    {gameConfig.hexCost.toLocaleString()}
+                                </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-700 font-medium">💵 Your Budget:</span>
+                                            <span className={`text-2xl font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
+                                    {currentBudget.toLocaleString()}
+                                </span>
+                                        </div>
+                                        {!canAfford && (
+                                            <p className="text-red-500 text-sm mt-2 font-semibold">
+                                                ⚠️ Not enough Budget!
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex space-x-4 justify-center">
+                                        <button
+                                            onClick={handleYesBuy}
+                                            disabled={!canAfford}
+                                            className={`px-8 py-3 rounded-lg text-white text-lg font-semibold transition-all ${
+                                                canAfford
+                                                    ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                                    : 'bg-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            Yes
+                                        </button>
+                                        <button
+                                            onClick={handleNoBuy}
+                                            className="bg-red-500 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-red-600 transition-all"
+                                        >
+                                            No
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
@@ -736,11 +826,56 @@ export default function PlaceMinion() {
             {showPlacePrompt && shouldShowPrompt(currentPlayer) && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg text-center">
-                        <p className="text-xl mb-4 text-black">Player {currentPlayer}'s Turn: ต้องวางตัวละครหรือไม่?</p>
-                        <button onClick={handleYesPlace}
-                                className="bg-green-500 text-white px-6 py-2 rounded mr-4">Yes
-                        </button>
-                        <button onClick={handleNoPlace} className="bg-red-500 text-white px-6 py-2 rounded">No</button>
+                        <p className="text-xl mb-4 text-black">Player {currentPlayer}: Do you want to place a
+                            minion?</p>
+                        {(() => {
+                            const currentBudget = currentPlayer === 1 ? budgets.player1 : budgets.player2;
+                            const canAfford = currentBudget >= gameConfig.spawnCost;
+
+                            return (
+                                <>
+                                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg mb-6 border border-purple-200">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-700 font-medium">💰 Minion's spawn cost:</span>
+                                            <span className="text-2xl font-bold text-purple-600">
+                                    {gameConfig.spawnCost.toLocaleString()}
+                                </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-700 font-medium">💵 Your budget:</span>
+                                            <span className={`text-2xl font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
+                                    {currentBudget.toLocaleString()}
+                                </span>
+                                        </div>
+                                        {!canAfford && (
+                                            <p className="text-red-500 text-sm mt-2 font-semibold">
+                                                ⚠️ Not enough Budget!
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex space-x-4 justify-center">
+                                        <button
+                                            onClick={handleYesPlace}
+                                            disabled={!canAfford}
+                                            className={`px-8 py-3 rounded-lg text-white text-lg font-semibold transition-all ${
+                                                canAfford
+                                                    ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                                    : 'bg-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            Yes
+                                        </button>
+                                        <button
+                                            onClick={handleNoPlace}
+                                            className="bg-red-500 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-red-600 transition-all"
+                                        >
+                                            No
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             )}

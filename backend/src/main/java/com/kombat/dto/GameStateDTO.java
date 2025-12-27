@@ -10,6 +10,10 @@ public class GameStateDTO {
     private List<HexTileDTO> board;
     private List<String> availableMinionTypes;
     private List<String> gameLog;
+    private ConfigDTO config;
+
+    public ConfigDTO getConfig() { return config; }
+    public void setConfig(ConfigDTO config) { this.config = config; }
 
     public int getTurnCounter() { return turnCounter; }
     public void setTurnCounter(int turnCounter) { this.turnCounter = turnCounter; }

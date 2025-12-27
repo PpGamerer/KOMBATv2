@@ -2,6 +2,7 @@
 import React from "react";
 import { useMinionSelection } from "@/hook/useMinionSelection";
 import { useRouter } from 'next/navigation';
+import { getDefaultStrategy } from "@/utils/defaultStrategies"; // Import the helper
 
 export default function SelectedMinions() {
   const {
@@ -21,6 +22,10 @@ export default function SelectedMinions() {
     updateMinionData
   } = useMinionSelection();
   const router = useRouter();
+
+  // Get the current minion's original name for placeholder
+  const currentMinion = selectedMinions[currentIndex];
+  const placeholderStrategy = currentMinion ? getDefaultStrategy(currentMinion.name) : "";
 
   const handleBack = () => {
     router.push('/minion-selection');
@@ -60,6 +65,14 @@ export default function SelectedMinions() {
       handleNext(); // ถ้ายังไม่ใช่ minion สุดท้าย
     } else {
       handleStartGame(); // ถ้าเป็น minion สุดท้าย
+    }
+  };
+
+  // Function to use default strategy
+  const useDefaultStrategy = () => {
+    if (placeholderStrategy) {
+      setStrategy(placeholderStrategy);
+      console.log("✅ Default strategy loaded for:", currentMinion.name);
     }
   };
 
@@ -105,12 +118,23 @@ export default function SelectedMinions() {
           </div>
 
           <div className="flex-1 bg-gray-200 p-10 rounded-3xl shadow-inner">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4 text-left">Strategy</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-3xl font-bold text-gray-800 text-left">Strategy</h2>
+              {placeholderStrategy && !strategy && (
+                  <button
+                      onClick={useDefaultStrategy}
+                      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all text-sm"
+                  >
+                    Use Default Strategy
+                  </button>
+              )}
+            </div>
             <textarea
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
+                placeholder={placeholderStrategy || "Enter your custom strategy here..."}
                 rows={5}
-                className="w-full p-3 bg-white text-gray-900 border-2 border-blue-300 rounded-md focus:outline-none focus:ring-4 focus:ring-blue-500"
+                className="w-full p-3 bg-white text-gray-900 border-2 border-blue-300 rounded-md focus:outline-none focus:ring-4 focus:ring-blue-500 font-mono text-sm"
             />
             <label className="block mt-4">
               <span className="text-2xl font-bold text-gray-800">Defense</span>

@@ -23,6 +23,17 @@ export interface MinionConfig {
     strategyFile?: string;
 }
 
+export interface ConfigDTO {
+    spawnCost: number;
+    hexPurchaseCost: number;
+    initBudget: number;
+    turnBudget: number;
+    maxBudget: number;
+    interestPct: number;
+    maxTurns: number;
+    maxSpawns: number;
+}
+
 export interface GameState {
     turnCounter: number;
     currentPlayerName: string;
@@ -31,6 +42,7 @@ export interface GameState {
     board: HexTileDTO[];
     availableMinionTypes: string[];
     gameLog: string[];
+    config: ConfigDTO;
 }
 
 export interface PlayerDTO {
