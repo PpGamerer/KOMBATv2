@@ -125,7 +125,7 @@ export default function PlaceMinion() {
             console.log("🎮 Initializing game with minions:", minions);
 
             const minionConfigs = minions.map(m => ({
-                customName: m.name,
+                customName: m.customName || m.name,
                 defenseFactor: m.defense || 1,
                 strategyCode: m.strategy || "",
                 strategyFile: ""
@@ -150,7 +150,6 @@ export default function PlaceMinion() {
             const gameState = await API.initGame(payload);
             console.log("✅ Game initialized, state:", gameState);
 
-            // ✅ Check both players
             const player1Data = gameState.players?.[0];
             const player1IsBot = player1Data?.isBot ||
                 player1Data?.name?.includes("Bot") ||
@@ -251,8 +250,22 @@ export default function PlaceMinion() {
     };
 
     const findMinionImage = (name: string): string => {
-        const minion = selectedMinions.find(m => m.name === name);
-        return minion?.image || "/bearr.png";
+        console.log("🔍 Finding image for minion:", name);
+
+        // Try to find by customName first
+        let minion = selectedMinions.find(m => m.name === name);
+
+        // If not found, try partial match (in case backend modified the name)
+        if (!minion) {
+            minion = selectedMinions.find(m =>
+                name.includes(m.customName || "") ||
+                name.includes(m.name)
+            );
+        }
+
+        const image = minion?.image || "/bearr.png";
+        console.log("   Found image:", image);
+        return image;
     };
 
     useEffect(() => {

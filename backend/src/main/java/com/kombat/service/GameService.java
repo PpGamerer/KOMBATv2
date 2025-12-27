@@ -489,11 +489,22 @@ public class GameService {
             MinionConfig config = configs.get(i);
             String baseType = (i < defaultTypes.length) ? defaultTypes[i] : "Unknown";
 
+            // ✅ เพิ่ม debug log
+            System.out.println("🎯 Configuring minion " + i + ":");
+            System.out.println("   customName: " + config.getCustomName());
+            System.out.println("   defenseFactor: " + config.getDefenseFactor());
+            System.out.println("   strategyCode length: " +
+                    (config.getStrategyCode() != null ? config.getStrategyCode().length() : 0));
+            System.out.println("   strategyCode: " +
+                    (config.getStrategyCode() != null ? config.getStrategyCode().substring(0, Math.min(100, config.getStrategyCode().length())) : "null"));
+
             // Load strategy
             List<Statement> strategy = loadStrategyFromFile(config.getStrategyFile());
             if (strategy == null) {
                 strategy = parseStrategyCode(config.getStrategyCode() != null ? config.getStrategyCode() : "");
             }
+
+            System.out.println("   ✅ Parsed strategy statements: " + (strategy != null ? strategy.size() : 0));
 
             MinionType type = new MinionType(
                     baseType,

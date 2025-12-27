@@ -18,12 +18,28 @@ export default function SelectedMinions() {
     setIsEditingName,
     handleNext,
     handlePrevious,
-    updateMinionData // ใช้ตัวนี้เพื่อ save ข้อมูล
+    updateMinionData
   } = useMinionSelection();
   const router = useRouter();
 
   const handleBack = () => {
     router.push('/minion-selection');
+  };
+
+  // Save name when finishing edit
+  const handleNameBlur = () => {
+    setIsEditingName(false);
+    updateMinionData(); // Save immediately after editing
+    console.log("💾 Minion name saved:", minionName);
+  };
+
+  // Save name when pressing Enter
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      setIsEditingName(false);
+      updateMinionData(); // Save immediately
+      console.log("💾 Minion name saved (Enter):", minionName);
+    }
   };
 
   const handleStartGame = () => {
@@ -36,7 +52,7 @@ export default function SelectedMinions() {
     updateMinionData();
 
     // Navigate ไปหน้าเกม
-    router.push('/game-screen'); // หรือ path ที่คุณต้องการ
+    router.push('/game-screen');
   };
 
   const handleNextClick = () => {
@@ -74,7 +90,9 @@ export default function SelectedMinions() {
                     type="text"
                     value={minionName}
                     onChange={(e) => setMinionName(e.target.value)}
-                    onBlur={() => setIsEditingName(false)}
+                    onBlur={handleNameBlur}
+                    onKeyDown={handleNameKeyDown}
+                    autoFocus
                     className="text-2xl font-bold text-center text-gray-800 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             )}

@@ -26,10 +26,17 @@ export function useMinionSelection() {
     }
   }, []);
 
+  // Sync input states with selectedMinions when currentIndex changes
+  useEffect(() => {
+    if (selectedMinions.length > 0 && selectedMinions[currentIndex]) {
+      loadMinionData(selectedMinions[currentIndex]);
+    }
+  }, [currentIndex, selectedMinions]);
+
   // Helper: โหลดข้อมูลเข้า Input state
   const loadMinionData = (minion: MinionType) => {
     setMinionName(minion.customName || minion.name);
-    setDefense(minion.defense || 100); // Default defense 100
+    setDefense(minion.defense || 1); // Default defense 1
     setStrategy(minion.strategy || "");
   };
 
@@ -39,17 +46,25 @@ export function useMinionSelection() {
     if (updatedMinions[currentIndex]) {
       updatedMinions[currentIndex] = {
         ...updatedMinions[currentIndex],
-        customName: minionName,
-        defense: defense === "" ? 0 : defense,
-        strategy: strategy
+        customName: minionName.trim() || updatedMinions[currentIndex].name, // Use trimmed name
+        defense: defense === "" ? 1 : defense,
+        strategy: strategy.trim()
       };
+
+      // Update state AND sessionStorage
       setSelectedMinions(updatedMinions);
       sessionStorage.setItem("selectedMinions", JSON.stringify(updatedMinions));
+
+      console.log("💾 Saved minion data:", {
+        index: currentIndex,
+        name: minionName,
+        defense: defense,
+        strategy: strategy.substring(0, 50) + "..."
+      });
     }
-    return updatedMinions; // Return ค่าใหม่เผื่อเอาไปใช้ต่อ
+    return updatedMinions;
   };
 
-  // ✅ เพิ่มฟังก์ชันนี้เพื่อให้ Component เรียกใช้ได้ (แก้ Error TS2339)
   const updateMinionData = () => {
     saveCurrentData();
   };
@@ -58,7 +73,7 @@ export function useMinionSelection() {
     // 1. Validate
     if (!minionName.trim() || defense === "" || !strategy.trim()) {
       setErrorMessage("กรุณากรอกข้อมูลให้ครบถ้วน");
-      return;
+      return false;
     }
 
     // 2. Save Data
@@ -69,13 +84,13 @@ export function useMinionSelection() {
     if (currentIndex < updatedList.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      loadMinionData(updatedList[nextIndex]);
+      // Don't load here - useEffect will handle it
       setIsEditingName(false);
-    }  else {
-    // ✅ ส่ง signal ว่าเสร็จสิ้นแล้ว
-    return true; // บอกว่าถึง minion สุดท้ายแล้ว
+      return false;
+    } else {
+      // ส่ง signal ว่าเสร็จสิ้นแล้ว
+      return true; // บอกว่าถึง minion สุดท้ายแล้ว
     }
-    return false;
   };
 
   const handlePrevious = () => {
@@ -86,7 +101,7 @@ export function useMinionSelection() {
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-      loadMinionData(updatedList[prevIndex]);
+      // Don't load here - useEffect will handle it
       setIsEditingName(false);
     }
   };
@@ -107,6 +122,6 @@ export function useMinionSelection() {
     setMessage,
     handleNext,
     handlePrevious,
-    updateMinionData, // ✅ Export ออกมาแล้ว
+    updateMinionData,
   };
 }

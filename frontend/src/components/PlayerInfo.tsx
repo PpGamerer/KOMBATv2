@@ -9,7 +9,6 @@ interface PlayerInfoProps {
 }
 
 const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions, onMinionClick }) => {
-    // ✅ แสดงเฉพาะ player ที่ตรงกับ prop
     if (player === 1) {
         return (
             <div className="absolute top-10 left-7 flex flex-col items-center space-y-6">
@@ -41,7 +40,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                 >
                     {selectedMinions.map((minion, index) => (
                         <div
-                            key={minion.name}
+                            key={`p1-${minion.id}-${index}`}
                             className="flex flex-col items-center"
                             style={{
                                 gridColumn:
@@ -54,11 +53,16 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                         >
                             <img
                                 src={minion.image}
-                                alt={minion.name}
+                                alt={minion.customName || minion.name}
                                 className="w-28 h-28 cursor-pointer relative z-50"
                                 onClick={(e) => onMinionClick(e, minion)}
                             />
-                            <p style={{WebkitTextStroke: "1px rgb(2, 9, 154)",fontFamily: "'Sigmar', sans-serif",}}>{minion.name}</p>
+                            <p style={{
+                                WebkitTextStroke: "1px rgb(2, 9, 154)",
+                                fontFamily: "'Sigmar', sans-serif",
+                            }}>
+                                {minion.customName || minion.name}
+                            </p>
                         </div>
                     ))}
                 </div>
@@ -66,7 +70,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
         );
     }
 
-    // ✅ Player 2
+    // Player 2
     return (
         <>
             {/* Player 2 minions */}
@@ -79,7 +83,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
             >
                 {selectedMinions.map((minion, index) => (
                     <div
-                        key={minion.name}
+                        key={`p2-${minion.id}-${index}`}
                         className="flex flex-col items-center"
                         style={{
                             gridColumn:
@@ -96,7 +100,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                     >
                         <img
                             src={minion.image}
-                            alt={minion.name}
+                            alt={minion.customName || minion.name}
                             className="w-28 h-28 cursor-pointer relative z-50"
                             onClick={(e) => onMinionClick(e, minion)}
                         />
@@ -106,7 +110,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({ player, budget, selectedMinions
                                 fontFamily: "'Sigmar', sans-serif",
                             }}
                         >
-                            {minion.name}
+                            {minion.customName || minion.name}
                         </p>
                     </div>
                 ))}
