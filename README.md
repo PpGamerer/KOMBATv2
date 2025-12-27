@@ -9,7 +9,7 @@ This project was originally developed based on a formal course specification.
 [Game Overview (PDF)](frontend/public/overview.pdf)
 
 # Project Background
-In the first version, I developed the complete backend system for the game, including:**
+In the first version, I developed the complete backend system for the game, including:
 - Core turn-based game logic
 
 - Custom minion strategy scripting and parsing
@@ -18,7 +18,7 @@ In the first version, I developed the complete backend system for the game, incl
 
 _This version was fully playable in a terminal environment._
 
-The frontend created during the course was a UI mock / prototype, supporting only basic interactions such as:**
+The frontend created during the course was a UI mock / prototype, supporting only basic interactions such as:
 
 - Character selection
 - Hex purchasing
