@@ -4,7 +4,7 @@
 ## Original Project Specification
 This project was originally developed based on a formal course specification.
 
-[Full Project Specification (PDF)](261200 2567-2 project specifications.pdf)
+[Full Project Specification (PDF)](project_specifications.pdf)
 
 [Game Overview (PDF)](frontend/public/overview.pdf)
 
