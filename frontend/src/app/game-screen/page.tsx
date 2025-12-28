@@ -133,7 +133,7 @@ export default function PlaceMinion() {
 
             const minionConfigs = minions.map(m => ({
                 customName: m.customName || m.name,
-                defenseFactor: m.defense || 1,
+                defenseFactor: m.defense ||1,
                 strategyCode: m.strategy || "",
                 strategyFile: ""
             }));

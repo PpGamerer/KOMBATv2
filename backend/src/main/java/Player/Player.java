@@ -69,6 +69,43 @@ public class Player implements PlayerInterface {
     }
 
     public void startTurn() {
+        System.out.println("🎯 " + name + " starting turn " + GameState.turnCounter);
+        System.out.println("   💰 Budget before: " + String.format("%.2f", budget));
+
+        // 1. เพิ่ม turn budget
+        int turnBudget = ConfigLoader.get("turn_budget");
+        this.budget += turnBudget;
+
+        // 2. คำนวณและเพิ่ม interest
+        if (GameState.turnCounter > 0 && this.budget > 0) {
+            double b = ConfigLoader.get("interest_pct");  // base interest rate
+            double m = this.budget;                        // current budget
+            double t = GameState.turnCounter;              // turn counter
+
+            // r = b × log₁₀(m) × ln(t)
+            double r = b * Math.log10(m) * Math.log(t);
+
+            // interest = m × r / 100
+            double interest = m * r / 100.0;
+
+            this.budget += interest;
+
+            System.out.println("   💵 Interest earned: " + String.format("%.2f", interest) +
+                    " (rate: " + String.format("%.2f", r) + "%)");
+        }
+
+        // 3. จำกัด max budget
+        int maxBudget = ConfigLoader.get("max_budget");
+        if (this.budget > maxBudget) {
+            this.budget = maxBudget;
+        }
+
+        System.out.println("   💰 Budget after: " + String.format("%.2f", budget));
+
+        // 4. Update context
+        this.context.put("budget", (long) this.budget);
+
+        // 5. Reset spawn flag
         hasSpawnedThisTurn = false;
     }
 

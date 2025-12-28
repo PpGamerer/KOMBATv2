@@ -4,6 +4,7 @@ com\kombat\dto\GameInitRequest.class
 Board\Direction.class
 com\kombat\dto\GameMode.class
 Parser\AST\Command.class
+com\kombat\dto\ConfigDTO.class
 com\kombat\dto\CommandResponse.class
 Game\GamePhase.class
 com\kombat\controller\EnhancedGameController.class
